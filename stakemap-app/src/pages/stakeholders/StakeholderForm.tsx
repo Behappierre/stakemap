@@ -106,30 +106,30 @@ export function StakeholderForm() {
     }
   }
 
-  if (loading) return <div className="text-slate-400">Loading...</div>;
+  if (loading) return <div className="text-slate-500">Loading...</div>;
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">{isEdit ? 'Edit Stakeholder' : 'Add Stakeholder'}</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-slate-900">{isEdit ? 'Edit Stakeholder' : 'Add Stakeholder'}</h1>
       <form onSubmit={handleSubmit} className="max-w-md space-y-4">
-        {error && <div className="rounded bg-red-500/20 p-3 text-red-400">{error}</div>}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Full Name *</label>
+          <label className="label">Full Name *</label>
           <input
             type="text"
             required
             value={form.full_name}
             onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Company *</label>
+          <label className="label">Company *</label>
           <select
             required
             value={form.company_id}
             onChange={(e) => setForm((f) => ({ ...f, company_id: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           >
             <option value="">Select company</option>
             {companies.map((c) => (
@@ -140,31 +140,31 @@ export function StakeholderForm() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Job Title</label>
+          <label className="label">Job Title</label>
           <input
             type="text"
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Department</label>
+          <label className="label">Department</label>
           <input
             type="text"
             value={form.department}
             onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Seniority</label>
+          <label className="label">Seniority</label>
           <select
             value={form.seniority_level}
             onChange={(e) => setForm((f) => ({ ...f, seniority_level: e.target.value as SeniorityLevel }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           >
-            <option value="">—</option>
+            <option value="">--</option>
             {SENIORITY_OPTIONS.map((o) => (
               <option key={o} value={o}>
                 {o.replace('_', ' ')}
@@ -173,22 +173,22 @@ export function StakeholderForm() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Influence Score (1–5)</label>
+          <label className="label">Influence Score (1-5)</label>
           <input
             type="number"
             min={1}
             max={5}
             value={form.influence_score}
             onChange={(e) => setForm((f) => ({ ...f, influence_score: +e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Sentiment</label>
+          <label className="label">Sentiment</label>
           <select
             value={form.sentiment}
             onChange={(e) => setForm((f) => ({ ...f, sentiment: e.target.value as SentimentType }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           >
             {SENTIMENT_OPTIONS.map((o) => (
               <option key={o} value={o}>
@@ -198,27 +198,24 @@ export function StakeholderForm() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Sentiment Confidence (1–5)</label>
+          <label className="label">Sentiment Confidence (1-5)</label>
           <input
             type="number"
             min={1}
             max={5}
             value={form.sentiment_confidence}
             onChange={(e) => setForm((f) => ({ ...f, sentiment_confidence: +e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div className="flex flex-wrap gap-3 pt-2">
-          <button
-            type="submit"
-            className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white transition hover:bg-emerald-500"
-          >
+          <button type="submit" className="btn-primary">
             {isEdit ? 'Save' : 'Create'}
           </button>
           <button
             type="button"
             onClick={() => navigate('/stakeholders')}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-slate-300 transition hover:bg-slate-800"
+            className="btn-secondary"
           >
             Cancel
           </button>
@@ -227,9 +224,9 @@ export function StakeholderForm() {
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="ml-auto rounded-lg border border-red-500/50 px-4 py-2 text-red-400 transition hover:bg-red-500/10 disabled:opacity-50"
+              className="btn-danger ml-auto disabled:opacity-50"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              {deleting ? 'Deleting...' : 'Delete'}
             </button>
           )}
         </div>

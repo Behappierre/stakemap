@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm uninstall:*)",
+      "Bash(del \"g:\\\\vscode101\\\\stakemap\\\\stakemap-app\\\\src\\\\types\\\\cytoscape-cxtmenu.d.ts\")"
+    ]
+  }
+}

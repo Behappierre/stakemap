@@ -26,40 +26,37 @@ export function CompanyList() {
     fetchCompanies();
   }, []);
 
-  if (loading) return <div className="text-slate-400">Loading companies...</div>;
-  if (error) return <div className="text-red-400">{error}</div>;
+  if (loading) return <div className="text-slate-500">Loading companies...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Companies</h1>
-        <Link
-          to="/companies/new"
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
-        >
+        <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
+        <Link to="/companies/new" className="btn-primary">
           Add Company
         </Link>
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-700">
+      <div className="table-container">
         <table className="w-full">
-          <thead className="bg-slate-800/50">
+          <thead className="table-header">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Industry</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Region</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase text-slate-400">Actions</th>
+              <th>Name</th>
+              <th>Industry</th>
+              <th>Region</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700">
+          <tbody>
             {companies.map((c) => (
-              <tr key={c.id} className="hover:bg-slate-800/30">
-                <td className="px-4 py-3 font-medium">{c.name}</td>
-                <td className="px-4 py-3 text-slate-400">{c.industry || '—'}</td>
-                <td className="px-4 py-3 text-slate-400">{c.region || '—'}</td>
-                <td className="px-4 py-3 text-right">
+              <tr key={c.id} className="table-row">
+                <td className="font-medium text-slate-900">{c.name}</td>
+                <td className="text-slate-500">{c.industry || '—'}</td>
+                <td className="text-slate-500">{c.region || '—'}</td>
+                <td className="text-right">
                   <Link
                     to={`/companies/${c.id}/edit`}
-                    className="text-emerald-400 hover:text-emerald-300"
+                    className="font-medium text-emerald-600 hover:text-emerald-700"
                   >
                     Edit
                   </Link>
@@ -70,7 +67,7 @@ export function CompanyList() {
         </table>
       </div>
       {companies.length === 0 && (
-        <p className="mt-4 text-slate-400">No companies yet. Add your first company to get started.</p>
+        <p className="mt-6 text-center text-slate-500">No companies yet. Add your first company to get started.</p>
       )}
     </div>
   );

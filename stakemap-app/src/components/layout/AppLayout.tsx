@@ -2,20 +2,24 @@ import { Outlet, NavLink } from 'react-router-dom';
 
 export function AppLayout() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <nav className="border-b border-slate-800 bg-slate-900/50">
-        <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
+    <div className="min-h-screen bg-gray-50 text-slate-900">
+      <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-lg">
+        <div className="mx-auto flex h-14 max-w-7xl items-center gap-8 px-4 sm:px-6">
           <NavLink
             to="/"
-            className="font-semibold text-emerald-400 transition hover:text-emerald-300"
+            className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900 transition hover:text-emerald-600"
           >
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-xs font-bold text-white">
+              SM
+            </span>
             StakeMap
           </NavLink>
-          <div className="flex gap-4">
+          <div className="flex items-center gap-1">
             <NavLink
               to="/"
+              end
               className={({ isActive }) =>
-                `text-sm transition ${isActive ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'}`
+                isActive ? 'nav-pill-active' : 'nav-pill-inactive'
               }
             >
               Map
@@ -23,7 +27,7 @@ export function AppLayout() {
             <NavLink
               to="/companies"
               className={({ isActive }) =>
-                `text-sm transition ${isActive ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'}`
+                isActive ? 'nav-pill-active' : 'nav-pill-inactive'
               }
             >
               Companies
@@ -31,7 +35,7 @@ export function AppLayout() {
             <NavLink
               to="/stakeholders"
               className={({ isActive }) =>
-                `text-sm transition ${isActive ? 'text-emerald-400' : 'text-slate-400 hover:text-slate-200'}`
+                isActive ? 'nav-pill-active' : 'nav-pill-inactive'
               }
             >
               Stakeholders
@@ -39,7 +43,7 @@ export function AppLayout() {
           </div>
         </div>
       </nav>
-      <main className="mx-auto max-w-7xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <Outlet />
       </main>
     </div>

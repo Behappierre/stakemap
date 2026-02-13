@@ -20,7 +20,6 @@ export function CsvImport({ onImportComplete }: CsvImportProps) {
   function normalizeColumnKey(header: string): string {
     const trimmed = header.trim();
     const lower = trimmed.toLowerCase().replace(/\s+/g, '_');
-    // Match by prefix for template headers like "Seniority (C_LEVEL, VP...)"
     if (lower.startsWith('full_name') || lower.startsWith('fullname') || lower === 'name') return 'full_name';
     if (lower.startsWith('company')) return 'company';
     if (lower.startsWith('title') || lower === 'job_title') return 'title';
@@ -193,7 +192,7 @@ export function CsvImport({ onImportComplete }: CsvImportProps) {
         <button
           type="button"
           onClick={downloadCsvTemplate}
-          className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-300 transition hover:bg-slate-800"
+          className="btn-secondary text-sm"
         >
           Download blank CSV template
         </button>
@@ -201,7 +200,7 @@ export function CsvImport({ onImportComplete }: CsvImportProps) {
           onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
           onDrop={onDrop}
-          className={`rounded-lg border-2 border-dashed px-4 py-3 text-center text-sm transition ${dragActive ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-600 text-slate-400 hover:border-slate-500'}`}
+          className={`rounded-lg border-2 border-dashed px-4 py-3 text-center text-sm transition ${dragActive ? 'border-emerald-500 bg-emerald-50' : 'border-gray-300 text-slate-500 hover:border-gray-400'}`}
         >
           <input
             ref={fileInputRef}
@@ -214,26 +213,26 @@ export function CsvImport({ onImportComplete }: CsvImportProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+            className="font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
           >
-            {importing ? 'Importing…' : 'Drop CSV here or click to browse'}
+            {importing ? 'Importing...' : 'Drop CSV here or click to browse'}
           </button>
         </div>
       </div>
 
       {result && (
-        <div className={`rounded-lg border p-3 text-sm ${result.errors.length > 0 ? 'border-amber-500/50 bg-amber-500/10' : 'border-emerald-500/50 bg-emerald-500/10'}`}>
-          <p className="font-medium text-slate-200">
+        <div className={`rounded-lg border p-3 text-sm ${result.errors.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
+          <p className="font-medium text-slate-900">
             Imported {result.imported} stakeholder{result.imported !== 1 ? 's' : ''}
             {result.created > 0 && ` · Created ${result.created} new compan${result.created !== 1 ? 'ies' : 'y'}`}
           </p>
           {result.errors.length > 0 && (
-            <ul className="mt-2 list-inside list-disc space-y-0.5 text-amber-200">
+            <ul className="mt-2 list-inside list-disc space-y-0.5 text-amber-700">
               {result.errors.slice(0, 10).map((err, i) => (
                 <li key={i}>{err}</li>
               ))}
               {result.errors.length > 10 && (
-                <li>…and {result.errors.length - 10} more</li>
+                <li>...and {result.errors.length - 10} more</li>
               )}
             </ul>
           )}

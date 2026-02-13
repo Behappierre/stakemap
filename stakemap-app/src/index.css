@@ -1,1 +1,160 @@
 @import "tailwindcss";
+
+/* ============================================================
+   1. THEME: Custom Properties & Font
+   ============================================================ */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ============================================================
+   2. BASE STYLES
+   ============================================================ */
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-gray-50 text-slate-900;
+  }
+
+  select option {
+    @apply bg-white text-slate-900;
+  }
+}
+
+/* ============================================================
+   3. COMPONENT UTILITIES
+   ============================================================ */
+@layer components {
+  /* Glass-morphism card */
+  .glass-card {
+    @apply rounded-xl border border-white/60 bg-white/70 shadow-lg shadow-black/[0.03] backdrop-blur-xl;
+  }
+
+  .glass-card-solid {
+    @apply rounded-xl border border-gray-200 bg-white shadow-sm;
+  }
+
+  /* Card hover lift */
+  .card-hover {
+    @apply transition-all duration-200 ease-out;
+  }
+  .card-hover:hover {
+    @apply shadow-md -translate-y-0.5;
+  }
+
+  /* Nav pills */
+  .nav-pill-active {
+    @apply rounded-full bg-emerald-50 px-3 py-1 text-sm text-emerald-700 font-medium;
+  }
+  .nav-pill-inactive {
+    @apply rounded-full px-3 py-1 text-sm text-slate-500 font-medium transition-colors hover:text-slate-900 hover:bg-gray-100;
+  }
+
+  /* Sentiment badges */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-ally {
+    @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20;
+  }
+  .badge-opponent {
+    @apply bg-red-50 text-red-700 ring-1 ring-red-600/20;
+  }
+  .badge-neutral {
+    @apply bg-slate-100 text-slate-600 ring-1 ring-slate-500/20;
+  }
+  .badge-unknown {
+    @apply bg-amber-50 text-amber-700 ring-1 ring-amber-600/20;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-emerald-500 hover:shadow-md active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-all duration-150 hover:bg-gray-50 hover:shadow-md active:scale-[0.98];
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition-all duration-150 hover:bg-red-50 hover:border-red-300;
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition-colors focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+
+  /* Tables */
+  .table-container {
+    @apply overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm;
+  }
+
+  .table-header {
+    @apply bg-gray-50/80;
+  }
+
+  .table-header th {
+    @apply px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500;
+  }
+
+  .table-row {
+    @apply border-t border-gray-100 transition-colors hover:bg-gray-50/60;
+  }
+
+  .table-row td {
+    @apply px-4 py-3.5 text-sm;
+  }
+
+  /* Influence dots */
+  .influence-dots {
+    @apply flex gap-1;
+  }
+  .influence-dot {
+    @apply h-2 w-2 rounded-full;
+  }
+  .influence-dot-filled {
+    @apply bg-emerald-500;
+  }
+  .influence-dot-empty {
+    @apply bg-gray-200;
+  }
+}
+
+/* ============================================================
+   4. ANIMATIONS
+   ============================================================ */
+@layer utilities {
+  .slide-in-right {
+    animation: slideInRight 0.25s ease-out forwards;
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}

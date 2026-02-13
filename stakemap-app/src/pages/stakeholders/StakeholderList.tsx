@@ -4,11 +4,11 @@ import { supabase } from '../../lib/supabase';
 import { CsvImport } from '../../components/stakeholders/CsvImport';
 import type { Stakeholder } from '../../types/database';
 
-const SENTIMENT_COLORS: Record<string, string> = {
-  ALLY: 'text-emerald-400',
-  NEUTRAL: 'text-slate-400',
-  OPPONENT: 'text-red-400',
-  UNKNOWN: 'text-amber-400',
+const SENTIMENT_BADGE: Record<string, string> = {
+  ALLY: 'badge badge-ally',
+  NEUTRAL: 'badge badge-neutral',
+  OPPONENT: 'badge badge-opponent',
+  UNKNOWN: 'badge badge-unknown',
 };
 
 export function StakeholderList() {
@@ -52,50 +52,47 @@ export function StakeholderList() {
     fetchStakeholders();
   }, [refreshKey]);
 
-  if (loading) return <div className="text-slate-400">Loading stakeholders...</div>;
-  if (error) return <div className="text-red-400">{error}</div>;
+  if (loading) return <div className="text-slate-500">Loading stakeholders...</div>;
+  if (error) return <div className="text-red-600">{error}</div>;
 
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Stakeholders</h1>
-        <Link
-          to="/stakeholders/new"
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-500"
-        >
+        <h1 className="text-2xl font-semibold text-slate-900">Stakeholders</h1>
+        <Link to="/stakeholders/new" className="btn-primary">
           Add Stakeholder
         </Link>
       </div>
-      <div className="mb-6 rounded-lg border border-slate-700 bg-slate-800/30 p-4">
-        <h3 className="mb-3 text-sm font-medium text-slate-300">Import from CSV</h3>
+      <div className="glass-card-solid mb-6 p-5">
+        <h3 className="mb-3 text-sm font-semibold text-slate-900">Import from CSV</h3>
         <CsvImport onImportComplete={() => setRefreshKey((k) => k + 1)} />
       </div>
-      <div className="overflow-hidden rounded-lg border border-slate-700">
+      <div className="table-container">
         <table className="w-full">
-          <thead className="bg-slate-800/50">
+          <thead className="table-header">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Company</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Title</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase text-slate-400">Sentiment</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase text-slate-400">Actions</th>
+              <th>Name</th>
+              <th>Company</th>
+              <th>Title</th>
+              <th>Sentiment</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-700">
+          <tbody>
             {stakeholders.map((s) => (
-              <tr key={s.id} className="hover:bg-slate-800/30">
-                <td className="px-4 py-3 font-medium">{s.full_name}</td>
-                <td className="px-4 py-3 text-slate-400">
-                  {s.companies?.name ?? '—'}
+              <tr key={s.id} className="table-row">
+                <td className="font-medium text-slate-900">{s.full_name}</td>
+                <td className="text-slate-500">{s.companies?.name ?? '—'}</td>
+                <td className="text-slate-500">{s.title || '—'}</td>
+                <td>
+                  <span className={SENTIMENT_BADGE[s.sentiment] || 'badge badge-neutral'}>
+                    {s.sentiment}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-slate-400">{s.title || '—'}</td>
-                <td className={`px-4 py-3 ${SENTIMENT_COLORS[s.sentiment] || 'text-slate-400'}`}>
-                  {s.sentiment}
-                </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <Link
                     to={`/stakeholders/${s.id}/edit`}
-                    className="text-emerald-400 hover:text-emerald-300"
+                    className="font-medium text-emerald-600 hover:text-emerald-700"
                   >
                     Edit
                   </Link>
@@ -103,9 +100,9 @@ export function StakeholderList() {
                   <button
                     onClick={() => deleteStakeholder(s.id)}
                     disabled={deletingId === s.id}
-                    className="text-red-400 hover:text-red-300 disabled:opacity-50"
+                    className="font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
                   >
-                    {deletingId === s.id ? 'Deleting…' : 'Delete'}
+                    {deletingId === s.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </td>
               </tr>
@@ -114,7 +111,7 @@ export function StakeholderList() {
         </table>
       </div>
       {stakeholders.length === 0 && (
-        <p className="mt-4 text-slate-400">
+        <p className="mt-6 text-center text-slate-500">
           No stakeholders yet. Add a company first, then add stakeholders.
         </p>
       )}

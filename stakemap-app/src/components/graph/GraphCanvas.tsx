@@ -1,19 +1,16 @@
 import { useEffect, useRef, useCallback } from 'react';
 import cytoscape, { type Core, type NodeSingular } from 'cytoscape';
-import cxtmenu from 'cytoscape-cxtmenu';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
 import type { Stakeholder } from '../../types/database';
 import type { Relationship } from '../../types/database';
 import type { MapLayout } from '../../types/database';
 
-cytoscape.use(cxtmenu);
-
 const SENTIMENT_COLORS: Record<string, string> = {
-  ALLY: '#22c55e',
+  ALLY: '#059669',
   NEUTRAL: '#64748b',
-  OPPONENT: '#ef4444',
-  UNKNOWN: '#f59e0b',
+  OPPONENT: '#dc2626',
+  UNKNOWN: '#d97706',
 };
 
 /** 48 distinct company ring colors (no two companies share a color) */
@@ -55,8 +52,6 @@ interface GraphCanvasProps {
   layouts: MapLayout[];
   onNodeClick?: (stakeholder: Stakeholder) => void;
   onLayoutChange?: () => void;
-  onNodeRightClick?: (stakeholder: Stakeholder) => void;
-  onNodeDelete?: (stakeholder: Stakeholder) => void;
 }
 
 export function GraphCanvas({
@@ -65,8 +60,6 @@ export function GraphCanvas({
   layouts,
   onNodeClick,
   onLayoutChange,
-  onNodeRightClick,
-  onNodeDelete,
 }: GraphCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -137,18 +130,30 @@ export function GraphCanvas({
             }) as any,
             label: 'data(label)',
             'text-valign': 'bottom',
-            'text-margin-y': 6,
-            'font-size': 11,
-            color: '#e2e8f0',
-            'text-outline-width': 1,
-            'text-outline-color': '#0f172a',
-            width: 32,
-            height: 32,
-            'border-width': 6,
+            'text-margin-y': 8,
+            'font-size': 12,
+            'font-family': 'Inter, sans-serif',
+            color: '#334155',
+            'text-outline-width': 2,
+            'text-outline-color': '#ffffff',
+            width: 36,
+            height: 36,
+            'border-width': 4,
             'border-color': (ele: NodeSingular) => {
               const d = ele.data() as { company_id?: string };
-              return companyColorMap.get(d.company_id ?? '') ?? '#64748b';
+              return companyColorMap.get(d.company_id ?? '') ?? '#94a3b8';
             },
+            'overlay-padding': 6,
+            'overlay-opacity': 0,
+          },
+        },
+        {
+          selector: 'node:selected',
+          style: {
+            'border-width': 5,
+            'border-color': '#059669',
+            'overlay-opacity': 0.08,
+            'overlay-color': '#059669',
           },
         },
         {
@@ -157,8 +162,18 @@ export function GraphCanvas({
             width: (ele: cytoscape.EdgeSingular) => Math.max(1, (ele.data('strength') || 3) * 0.8),
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
-            'line-color': '#64748b',
-            'target-arrow-color': '#64748b',
+            'line-color': '#cbd5e1',
+            'target-arrow-color': '#cbd5e1',
+            'line-opacity': 0.7,
+          },
+        },
+        {
+          selector: 'edge:selected',
+          style: {
+            'line-color': '#059669',
+            'target-arrow-color': '#059669',
+            'line-opacity': 1,
+            width: 3,
           },
         },
       ],
@@ -179,41 +194,6 @@ export function GraphCanvas({
       const data = (node.data() as { stakeholder: Stakeholder }).stakeholder;
       onNodeClick?.(data);
     });
-
-    const commands = [
-      ...(onNodeRightClick
-        ? [
-            {
-              content: 'Add relationship',
-              select: (ele: NodeSingular) => {
-                const data = (ele.data() as { stakeholder: Stakeholder }).stakeholder;
-                onNodeRightClick(data);
-              },
-            },
-          ]
-        : []),
-      ...(onNodeDelete
-        ? [
-            {
-              content: 'Delete',
-              select: (ele: NodeSingular) => {
-                const data = (ele.data() as { stakeholder: Stakeholder }).stakeholder;
-                onNodeDelete(data);
-              },
-            },
-          ]
-        : []),
-    ];
-    const cxtmenuInstance = commands.length > 0
-      ? (cy as unknown as { cxtmenu: (opts: unknown) => { destroy: () => void } }).cxtmenu({
-          selector: 'node',
-          commands,
-          fillColor: 'rgba(30, 41, 59, 0.95)',
-          activeFillColor: 'rgba(16, 185, 129, 0.8)',
-          itemColor: 'white',
-          zIndex: 9999,
-        })
-      : null;
 
     cy.on('dragfree', 'node', async (evt) => {
       const node = evt.target;
@@ -241,16 +221,15 @@ export function GraphCanvas({
     });
 
     return () => {
-      cxtmenuInstance?.destroy?.();
       cy.destroy();
       cyRef.current = null;
     };
-  }, [stakeholders, relationships, layouts, layoutMap, onNodeClick, onLayoutChange, onNodeRightClick, onNodeDelete]);
+  }, [stakeholders, relationships, layouts, layoutMap, onNodeClick, onLayoutChange]);
 
   return (
     <div
       ref={containerRef}
-      className="h-full min-h-[500px] w-full rounded-lg border border-slate-700 bg-slate-900"
+      className="h-full min-h-[500px] w-full rounded-xl border border-gray-200 bg-white shadow-sm"
     />
   );
 }

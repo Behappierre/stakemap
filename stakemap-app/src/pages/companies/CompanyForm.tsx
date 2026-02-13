@@ -69,62 +69,59 @@ export function CompanyForm() {
     }
   }
 
-  if (loading) return <div className="text-slate-400">Loading...</div>;
+  if (loading) return <div className="text-slate-500">Loading...</div>;
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold">{isEdit ? 'Edit Company' : 'Add Company'}</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-slate-900">{isEdit ? 'Edit Company' : 'Add Company'}</h1>
       <form onSubmit={handleSubmit} className="max-w-md space-y-4">
-        {error && <div className="rounded bg-red-500/20 p-3 text-red-400">{error}</div>}
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>}
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Name *</label>
+          <label className="label">Name *</label>
           <input
             type="text"
             required
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Industry</label>
+          <label className="label">Industry</label>
           <input
             type="text"
             value={form.industry}
             onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Region</label>
+          <label className="label">Region</label>
           <input
             type="text"
             value={form.region}
             onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-slate-400">Tags (comma-separated)</label>
+          <label className="label">Tags (comma-separated)</label>
           <input
             type="text"
             value={form.tags}
             onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
             placeholder="e.g. enterprise, B2B"
-            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+            className="input"
           />
         </div>
         <div className="flex gap-3 pt-2">
-          <button
-            type="submit"
-            className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white transition hover:bg-emerald-500"
-          >
+          <button type="submit" className="btn-primary">
             {isEdit ? 'Save' : 'Create'}
           </button>
           <button
             type="button"
             onClick={() => navigate('/companies')}
-            className="rounded-lg border border-slate-600 px-4 py-2 text-slate-300 transition hover:bg-slate-800"
+            className="btn-secondary"
           >
             Cancel
           </button>
