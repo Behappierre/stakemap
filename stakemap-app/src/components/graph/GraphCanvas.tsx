@@ -218,7 +218,6 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
 
       // Label at centroid
       const cx = positions.reduce((s, p) => s + p.x, 0) / positions.length;
-      const cy = positions.reduce((s, p) => s + p.y, 0) / positions.length;
       // Place label above the hull
       const topY = Math.min(...hull.map((p) => p.y));
       ctx.font = '600 11px Inter, sans-serif';
