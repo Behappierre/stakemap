@@ -194,13 +194,21 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
 
     groups.forEach(({ positions, color, name }) => {
       if (positions.length < 2) return; // Need at least 2 nodes to draw a hull
-      const hull = convexHull(positions, 40);
+      const hull = convexHull(positions, 50);
       if (hull.length < 3) return;
 
+      // Draw smooth rounded blob using cubic Bezier curves
       ctx.beginPath();
-      ctx.moveTo(hull[0].x, hull[0].y);
-      for (let i = 1; i < hull.length; i++) {
-        ctx.lineTo(hull[i].x, hull[i].y);
+      const n = hull.length;
+      // Compute midpoints between consecutive hull vertices
+      const mids = hull.map((p, i) => {
+        const next = hull[(i + 1) % n];
+        return { x: (p.x + next.x) / 2, y: (p.y + next.y) / 2 };
+      });
+      ctx.moveTo(mids[0].x, mids[0].y);
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        ctx.quadraticCurveTo(hull[next].x, hull[next].y, mids[next].x, mids[next].y);
       }
       ctx.closePath();
 
