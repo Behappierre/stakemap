@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import cytoscape, { type Core, type NodeSingular } from 'cytoscape';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
@@ -46,6 +46,10 @@ const SENIORITY_SHAPES: Record<string, string> = {
   IC: 'triangle',
 };
 
+export interface GraphCanvasHandle {
+  exportPng: () => string | null;
+}
+
 interface GraphCanvasProps {
   stakeholders: Stakeholder[];
   relationships: Relationship[];
@@ -54,15 +58,22 @@ interface GraphCanvasProps {
   onLayoutChange?: () => void;
 }
 
-export function GraphCanvas({
+export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(function GraphCanvas({
   stakeholders,
   relationships,
   layouts,
   onNodeClick,
   onLayoutChange,
-}: GraphCanvasProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    exportPng: () => {
+      if (!cyRef.current) return null;
+      return cyRef.current.png({ output: 'base64uri', bg: '#ffffff', full: true, scale: 2 });
+    },
+  }));
 
   const layoutMap = useCallback(
     (id: string) => layouts.find((l) => l.stakeholder_id === id),
@@ -232,4 +243,4 @@ export function GraphCanvas({
       className="h-full min-h-[500px] w-full rounded-xl border border-gray-200 bg-white shadow-sm"
     />
   );
-}
+});

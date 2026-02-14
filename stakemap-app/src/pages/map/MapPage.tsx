@@ -1,6 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { GraphCanvas } from '../../components/graph/GraphCanvas';
+import type { GraphCanvasHandle } from '../../components/graph/GraphCanvas';
+import { CompanyFilter } from '../../components/graph/CompanyFilter';
 import { AddRelationshipForm } from '../../components/relationships/AddRelationshipForm';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
@@ -24,6 +26,49 @@ export function MapPage() {
   const [loading, setLoading] = useState(true);
   const [clustering, setClustering] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
+  const graphRef = useRef<GraphCanvasHandle>(null);
+
+  // Build company list with stakeholder counts for the filter
+  const companyList = useMemo(() => {
+    const map = new Map<string, { name: string; count: number }>();
+    for (const s of stakeholders) {
+      const companyName = (s as Stakeholder & { companies?: { name: string } }).companies?.name;
+      if (!s.company_id || !companyName) continue;
+      const existing = map.get(s.company_id);
+      if (existing) {
+        existing.count++;
+      } else {
+        map.set(s.company_id, { name: companyName, count: 1 });
+      }
+    }
+    return Array.from(map.entries()).map(([id, { name, count }]) => ({ id, name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [stakeholders]);
+
+  // Initialize selectedCompanies to all when stakeholders load
+  useEffect(() => {
+    if (companyList.length > 0 && selectedCompanies.size === 0) {
+      setSelectedCompanies(new Set(companyList.map((c) => c.id)));
+    }
+  }, [companyList]);
+
+  // Filtered stakeholders based on company selection
+  const filteredStakeholders = useMemo(() => {
+    if (selectedCompanies.size === 0 || selectedCompanies.size === companyList.length) {
+      return stakeholders;
+    }
+    return stakeholders.filter((s) => selectedCompanies.has(s.company_id));
+  }, [stakeholders, selectedCompanies, companyList.length]);
+
+  function exportPng() {
+    const dataUri = graphRef.current?.exportPng();
+    if (!dataUri) return;
+    const link = document.createElement('a');
+    link.download = `stakemap-${new Date().toISOString().slice(0, 10)}.png`;
+    link.href = dataUri;
+    link.click();
+  }
 
   const selectedRelationships = useMemo(() => {
     if (!selectedStakeholder) return [];
@@ -122,18 +167,35 @@ export function MapPage() {
   return (
     <div className="flex h-[calc(100vh-7rem)] gap-6">
       <div className="flex-1">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-semibold text-slate-900">Stakeholder Map</h1>
-          <button
-            onClick={clusterByCompany}
-            disabled={clustering || stakeholders.length === 0}
-            className="btn-secondary text-sm disabled:opacity-50"
-          >
-            {clustering ? 'Clustering...' : 'Cluster by Company'}
-          </button>
+          <div className="flex items-center gap-3">
+            {companyList.length > 1 && (
+              <CompanyFilter
+                companies={companyList}
+                selected={selectedCompanies}
+                onChange={setSelectedCompanies}
+              />
+            )}
+            <button
+              onClick={clusterByCompany}
+              disabled={clustering || stakeholders.length === 0}
+              className="btn-secondary text-sm disabled:opacity-50"
+            >
+              {clustering ? 'Clustering...' : 'Cluster by Company'}
+            </button>
+            <button
+              onClick={exportPng}
+              disabled={stakeholders.length === 0}
+              className="btn-secondary text-sm disabled:opacity-50"
+            >
+              Export PNG
+            </button>
+          </div>
         </div>
         <GraphCanvas
-          stakeholders={stakeholders}
+          ref={graphRef}
+          stakeholders={filteredStakeholders}
           relationships={relationships}
           layouts={layouts}
           onNodeClick={setSelectedStakeholder}
