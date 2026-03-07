@@ -9,6 +9,8 @@ export function CompanyForm() {
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [allCompanies, setAllCompanies] = useState<Company[]>([]);
   const [form, setForm] = useState({
     name: '',
     industry: '',
@@ -16,6 +18,14 @@ export function CompanyForm() {
     parent_company_id: '',
     tags: '',
   });
+
+  useEffect(() => {
+    async function loadAll() {
+      const { data } = await supabase.from('companies').select('*').eq('status', 'active').order('name');
+      setAllCompanies((data as Company[]) || []);
+    }
+    loadAll();
+  }, []);
 
   useEffect(() => {
     const loadId = id;
@@ -69,6 +79,29 @@ export function CompanyForm() {
     }
   }
 
+  async function handleDelete() {
+    if (!id) return;
+    const { count } = await supabase
+      .from('stakeholders')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', id)
+      .eq('status', 'active');
+    if ((count ?? 0) > 0) {
+      window.alert(`This company has ${count} active stakeholder${count === 1 ? '' : 's'}. Archive or reassign them before archiving the company.`);
+      return;
+    }
+    if (!window.confirm('Archive this company?')) return;
+    setDeleting(true);
+    try {
+      const { error: err } = await supabase.from('companies').update({ status: 'archived' }).eq('id', id);
+      if (err) throw err;
+      navigate('/companies');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to archive');
+      setDeleting(false);
+    }
+  }
+
   if (loading) return <div className="text-slate-500">Loading...</div>;
 
   return (
@@ -105,6 +138,19 @@ export function CompanyForm() {
           />
         </div>
         <div>
+          <label className="label">Parent Company</label>
+          <select
+            value={form.parent_company_id}
+            onChange={(e) => setForm((f) => ({ ...f, parent_company_id: e.target.value }))}
+            className="input"
+          >
+            <option value="">None</option>
+            {allCompanies.filter((c) => c.id !== id).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="label">Tags (comma-separated)</label>
           <input
             type="text"
@@ -114,7 +160,7 @@ export function CompanyForm() {
             className="input"
           />
         </div>
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-wrap gap-3 pt-2">
           <button type="submit" className="btn-primary">
             {isEdit ? 'Save' : 'Create'}
           </button>
@@ -125,6 +171,16 @@ export function CompanyForm() {
           >
             Cancel
           </button>
+          {isEdit && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="btn-danger ml-auto disabled:opacity-50"
+            >
+              {deleting ? 'Archiving...' : 'Archive'}
+            </button>
+          )}
         </div>
       </form>
     </div>

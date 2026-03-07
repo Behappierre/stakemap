@@ -1,30 +1,60 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { logAudit } from '../../lib/audit';
 import type { Company } from '../../types/database';
 
 export function CompanyList() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function fetchCompanies() {
+    try {
+      const { data, error: err } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
+      if (err) throw err;
+      setCompanies((data as Company[]) || []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load companies');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchCompanies() {
-      try {
-        const { data, error: err } = await supabase
-          .from('companies')
-          .select('*')
-          .order('name');
-        if (err) throw err;
-        setCompanies((data as Company[]) || []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load companies');
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchCompanies();
   }, []);
+
+  async function deleteCompany(id: string) {
+    // Guard: check for active stakeholders
+    const { count, error: countErr } = await supabase
+      .from('stakeholders')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', id)
+      .eq('status', 'active');
+    if (countErr) { window.alert('Could not verify stakeholders. Try again.'); return; }
+    if ((count ?? 0) > 0) {
+      window.alert(`This company has ${count} active stakeholder${count === 1 ? '' : 's'}. Archive or reassign them before deleting the company.`);
+      return;
+    }
+    if (!window.confirm('Archive this company? It will be hidden from all views.')) return;
+    setDeletingId(id);
+    try {
+      const { error: err } = await supabase.from('companies').update({ status: 'archived' }).eq('id', id);
+      if (err) throw err;
+      logAudit('company', id, 'archive');
+      await fetchCompanies();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Failed to archive company');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   if (loading) return <div className="text-slate-500">Loading companies...</div>;
   if (error) return <div className="text-red-600">{error}</div>;
@@ -60,6 +90,14 @@ export function CompanyList() {
                   >
                     Edit
                   </Link>
+                  {' · '}
+                  <button
+                    onClick={() => deleteCompany(c.id)}
+                    disabled={deletingId === c.id}
+                    className="font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
+                  >
+                    {deletingId === c.id ? 'Archiving...' : 'Archive'}
+                  </button>
                 </td>
               </tr>
             ))}

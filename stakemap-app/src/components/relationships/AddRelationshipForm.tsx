@@ -26,6 +26,8 @@ export function AddRelationshipForm({ onAdded, fromStakeholderId }: AddRelations
   const [toId, setToId] = useState('');
   const [relationType, setRelationType] = useState<RelationType>('COLLABORATES_WITH');
   const [strength, setStrength] = useState(3);
+  const [directionality, setDirectionality] = useState('directional');
+  const [sentimentImpact, setSentimentImpact] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,6 +59,8 @@ export function AddRelationshipForm({ onAdded, fromStakeholderId }: AddRelations
         to_stakeholder_id: toId,
         relation_type: relationType,
         strength,
+        directionality,
+        sentiment_impact: sentimentImpact,
       });
       if (err) throw err;
       setFromId(fromStakeholderId || '');
@@ -127,6 +131,23 @@ export function AddRelationshipForm({ onAdded, fromStakeholderId }: AddRelations
           onChange={(e) => setStrength(+e.target.value)}
           className="input"
         />
+      </div>
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="label">Direction</label>
+          <select value={directionality} onChange={(e) => setDirectionality(e.target.value)} className="input">
+            <option value="directional">Directed</option>
+            <option value="bidirectional">Bidirectional</option>
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="label">Sentiment Impact</label>
+          <select value={sentimentImpact} onChange={(e) => setSentimentImpact(+e.target.value)} className="input">
+            <option value={1}>Positive (+1)</option>
+            <option value={0}>Neutral (0)</option>
+            <option value={-1}>Negative (−1)</option>
+          </select>
+        </div>
       </div>
       <button type="submit" className="btn-primary w-full">
         Add Relationship

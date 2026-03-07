@@ -5,6 +5,8 @@ import { CompanyList } from './pages/companies/CompanyList';
 import { CompanyForm } from './pages/companies/CompanyForm';
 import { StakeholderList } from './pages/stakeholders/StakeholderList';
 import { StakeholderForm } from './pages/stakeholders/StakeholderForm';
+import { ArchivedStakeholders } from './pages/stakeholders/ArchivedStakeholders';
+import { AuditLog } from './pages/audit/AuditLog';
 
 function App() {
   return (
@@ -17,7 +19,9 @@ function App() {
           <Route path="companies/:id/edit" element={<CompanyForm />} />
           <Route path="stakeholders" element={<StakeholderList />} />
           <Route path="stakeholders/new" element={<StakeholderForm />} />
+          <Route path="stakeholders/archived" element={<ArchivedStakeholders />} />
           <Route path="stakeholders/:id/edit" element={<StakeholderForm />} />
+          <Route path="audit" element={<AuditLog />} />
         </Route>
       </Routes>
     </BrowserRouter>

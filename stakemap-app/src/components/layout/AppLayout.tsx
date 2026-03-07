@@ -40,6 +40,14 @@ export function AppLayout() {
             >
               Stakeholders
             </NavLink>
+            <NavLink
+              to="/audit"
+              className={({ isActive }) =>
+                isActive ? 'nav-pill-active' : 'nav-pill-inactive'
+              }
+            >
+              Audit Log
+            </NavLink>
           </div>
         </div>
       </nav>

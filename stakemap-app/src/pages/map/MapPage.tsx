@@ -1,13 +1,14 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraphCanvas } from '../../components/graph/GraphCanvas';
-import type { GraphCanvasHandle } from '../../components/graph/GraphCanvas';
+import type { GraphCanvasHandle, LayoutName } from '../../components/graph/GraphCanvas';
 import { CompanyFilter } from '../../components/graph/CompanyFilter';
 import { MapFilters } from '../../components/graph/MapFilters';
 import { AddRelationshipForm } from '../../components/relationships/AddRelationshipForm';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
 import { exportStakeholdersCsv, exportRelationshipsCsv } from '../../lib/csvTemplate';
+import { logAudit } from '../../lib/audit';
 import type { Stakeholder } from '../../types/database';
 import type { Relationship, RelationType } from '../../types/database';
 import type { MapLayout } from '../../types/database';
@@ -41,7 +42,16 @@ export function MapPage() {
   const [mapFilters, setMapFilters] = useState({ sentiments: [] as string[], seniorities: [] as string[], minInfluence: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showLayoutMenu, setShowLayoutMenu] = useState(false);
+  const [layouting, setLayouting] = useState(false);
+  const [showPathFinder, setShowPathFinder] = useState(false);
+  const [pathFrom, setPathFrom] = useState('');
+  const [pathTo, setPathTo] = useState('');
+  const [pathNoResult, setPathNoResult] = useState(false);
+  const [editRelDirectionality, setEditRelDirectionality] = useState('DIRECTED');
+  const [editRelSentimentImpact, setEditRelSentimentImpact] = useState(0);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const layoutMenuRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<GraphCanvasHandle>(null);
   const navigate = useNavigate();
 
@@ -96,7 +106,7 @@ export function MapPage() {
     return result;
   }, [stakeholders, selectedCompanies, companyList.length, mapFilters, searchQuery]);
 
-  // Close export menu on outside click
+  // Close export / layout menus on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
@@ -108,6 +118,18 @@ export function MapPage() {
       return () => document.removeEventListener('mousedown', handleClick);
     }
   }, [showExportMenu]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (layoutMenuRef.current && !layoutMenuRef.current.contains(e.target as Node)) {
+        setShowLayoutMenu(false);
+      }
+    }
+    if (showLayoutMenu) {
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }
+  }, [showLayoutMenu]);
 
   function exportPng() {
     const dataUri = graphRef.current?.exportPng();
@@ -137,6 +159,34 @@ export function MapPage() {
     setShowExportMenu(false);
   }
 
+  async function runLayout(name: LayoutName) {
+    if (stakeholders.length === 0) return;
+    setLayouting(true);
+    setShowLayoutMenu(false);
+    try {
+      graphRef.current?.runLayout(name);
+      // onLayoutChange fires after layoutstop inside GraphCanvas; wait briefly then reload
+      await new Promise((r) => setTimeout(r, 1200));
+      await loadData();
+    } finally {
+      setLayouting(false);
+    }
+  }
+
+  function findPath() {
+    if (!pathFrom || !pathTo) return;
+    setPathNoResult(false);
+    const found = graphRef.current?.highlightPath(pathFrom, pathTo);
+    if (found === false) setPathNoResult(true);
+  }
+
+  function clearPath() {
+    graphRef.current?.clearHighlight();
+    setPathNoResult(false);
+    setPathFrom('');
+    setPathTo('');
+  }
+
   const selectedRelationships = useMemo(() => {
     if (!selectedStakeholder) return [];
     return relationships
@@ -161,6 +211,7 @@ export function MapPage() {
     try {
       const { error } = await supabase.from('relationships').delete().eq('id', id);
       if (error) throw error;
+      logAudit('relationship', id, 'delete');
       await loadData();
     } catch (e) {
       console.error('Delete relationship failed:', e);
@@ -172,6 +223,8 @@ export function MapPage() {
     setEditRelType(r.relation_type);
     setEditRelStrength(r.strength ?? 3);
     setEditRelNotes(r.notes ?? '');
+    setEditRelDirectionality(r.directionality ?? 'DIRECTED');
+    setEditRelSentimentImpact(r.sentiment_impact ?? 0);
   }
 
   async function saveRelationship() {
@@ -181,8 +234,11 @@ export function MapPage() {
         relation_type: editRelType,
         strength: editRelStrength,
         notes: editRelNotes || null,
+        directionality: editRelDirectionality,
+        sentiment_impact: editRelSentimentImpact,
       }).eq('id', editingRelId);
       if (error) throw error;
+      logAudit('relationship', editingRelId, 'update');
       setEditingRelId(null);
       await loadData();
     } catch (e) {
@@ -196,6 +252,7 @@ export function MapPage() {
     try {
       const { error } = await supabase.from('stakeholders').update({ status: 'archived' }).eq('id', id);
       if (error) throw error;
+      logAudit('stakeholder', id, 'archive');
       setSelectedStakeholder(null);
       await loadData();
     } catch (e) {
@@ -330,73 +387,133 @@ export function MapPage() {
   return (
     <div className="flex h-[calc(100vh-7rem)] gap-6">
       <div className="flex-1">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold text-slate-900">Stakeholder Map</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <svg className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search name, title, company..."
-                className="w-52 rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            {companyList.length > 1 && (
-              <CompanyFilter
-                companies={companyList}
-                selected={selectedCompanies}
-                onChange={setSelectedCompanies}
-              />
-            )}
-            <MapFilters filters={mapFilters} onChange={setMapFilters} />
-            <button
-              onClick={clusterByCompany}
-              disabled={clustering || stakeholders.length === 0}
-              className="btn-secondary text-sm disabled:opacity-50"
-            >
-              {clustering ? 'Clustering...' : 'Cluster by Company'}
-            </button>
-            <div ref={exportMenuRef} className="relative">
-              <button
-                onClick={() => setShowExportMenu((v) => !v)}
-                disabled={stakeholders.length === 0}
-                className="btn-secondary text-sm disabled:opacity-50"
-              >
-                <svg className="mr-1.5 h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        {/* Toolbar */}
+        <div className="mb-3 flex items-center gap-2">
+          {/* --- Filter group --- */}
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search…"
+              className="w-40 rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-7 text-xs text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Export
               </button>
-              {showExportMenu && (
-                <div className="absolute right-0 top-full z-50 mt-1.5 w-48 rounded-xl border border-gray-200 bg-white py-1 shadow-lg fade-in">
-                  <button onClick={exportPng} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-gray-50">
-                    <span className="text-slate-400">PNG</span> Map snapshot
-                  </button>
-                  <button onClick={exportCsvStakeholders} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-gray-50">
-                    <span className="text-slate-400">CSV</span> Stakeholders
-                  </button>
-                  <button onClick={exportCsvRelationships} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-gray-50">
-                    <span className="text-slate-400">CSV</span> Relationships
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
+          </div>
+          {companyList.length > 1 && (
+            <CompanyFilter companies={companyList} selected={selectedCompanies} onChange={setSelectedCompanies} />
+          )}
+          <MapFilters filters={mapFilters} onChange={setMapFilters} />
+
+          {/* --- Divider --- */}
+          <span className="h-5 w-px shrink-0 bg-gray-200" />
+
+          {/* --- Action group --- */}
+          {/* Arrange dropdown (includes Cluster by Company) */}
+          <div ref={layoutMenuRef} className="relative">
+            <button
+              onClick={() => setShowLayoutMenu((v) => !v)}
+              disabled={(layouting || clustering) || stakeholders.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              <svg className="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+              </svg>
+              {layouting ? 'Arranging…' : clustering ? 'Clustering…' : 'Arrange'}
+              <svg className="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            {showLayoutMenu && (
+              <div className="absolute left-0 top-full z-50 mt-1.5 w-48 rounded-xl border border-gray-200 bg-white py-1 shadow-lg fade-in">
+                <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Auto-layout</p>
+                <button onClick={() => runLayout('cose')} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-gray-50">Force-directed</button>
+                <button onClick={() => runLayout('breadthfirst')} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-gray-50">Org Hierarchy</button>
+                <button onClick={() => runLayout('circle')} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-gray-50">Circle</button>
+                <div className="my-1 border-t border-gray-100" />
+                <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Group</p>
+                <button onClick={clusterByCompany} disabled={clustering} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-gray-50 disabled:opacity-50">Cluster by Company</button>
+              </div>
+            )}
+          </div>
+
+          {/* Find Path toggle */}
+          <button
+            onClick={() => { setShowPathFinder((v) => !v); if (showPathFinder) clearPath(); }}
+            disabled={stakeholders.length === 0}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm transition disabled:opacity-50 ${showPathFinder ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-slate-600 hover:bg-gray-50'}`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+            </svg>
+            Find Path
+          </button>
+
+          {/* Export dropdown */}
+          <div ref={exportMenuRef} className="relative ml-auto">
+            <button
+              onClick={() => setShowExportMenu((v) => !v)}
+              disabled={stakeholders.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-50"
+            >
+              <svg className="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Export
+              <svg className="h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-48 rounded-xl border border-gray-200 bg-white py-1 shadow-lg fade-in">
+                <button onClick={exportPng} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-gray-50">
+                  <span className="w-8 rounded bg-gray-100 px-1 py-0.5 text-center font-mono text-[10px] text-slate-500">PNG</span> Map snapshot
+                </button>
+                <button onClick={exportCsvStakeholders} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-gray-50">
+                  <span className="w-8 rounded bg-gray-100 px-1 py-0.5 text-center font-mono text-[10px] text-slate-500">CSV</span> Stakeholders
+                </button>
+                <button onClick={exportCsvRelationships} className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-slate-700 hover:bg-gray-50">
+                  <span className="w-8 rounded bg-gray-100 px-1 py-0.5 text-center font-mono text-[10px] text-slate-500">CSV</span> Relationships
+                </button>
+              </div>
+            )}
           </div>
         </div>
+        {/* Path finder panel */}
+        {showPathFinder && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 fade-in">
+            <span className="text-xs font-medium text-emerald-700">Find path from</span>
+            <select
+              value={pathFrom}
+              onChange={(e) => { setPathFrom(e.target.value); setPathNoResult(false); }}
+              className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            >
+              <option value="">Select stakeholder…</option>
+              {filteredStakeholders.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
+            <span className="text-xs font-medium text-emerald-700">to</span>
+            <select
+              value={pathTo}
+              onChange={(e) => { setPathTo(e.target.value); setPathNoResult(false); }}
+              className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            >
+              <option value="">Select stakeholder…</option>
+              {filteredStakeholders.filter((s) => s.id !== pathFrom).map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+            </select>
+            <button onClick={findPath} disabled={!pathFrom || !pathTo} className="btn-primary py-1 text-xs disabled:opacity-50">Highlight</button>
+            <button onClick={clearPath} className="btn-secondary py-1 text-xs">Clear</button>
+            {pathNoResult && <span className="text-xs text-red-500">No path found between these stakeholders.</span>}
+          </div>
+        )}
         <GraphCanvas
           ref={graphRef}
           stakeholders={filteredStakeholders}
@@ -506,7 +623,7 @@ export function MapPage() {
 
             {/* Tip */}
             <div className="p-4 text-center">
-              <p className="text-xs text-slate-400">Click a node to view details. Right-click for quick actions.</p>
+              <p className="text-xs text-slate-400">Click a node to view details · Right-click for quick actions · <kbd className="rounded bg-gray-100 px-1 text-[10px] font-medium text-slate-500">Shift</kbd> + drag canvas to multi-select, then drag any selected node to move them all</p>
             </div>
           </div>
         )}
@@ -711,6 +828,31 @@ export function MapPage() {
                                 />
                               </div>
                             </div>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="text-[10px] font-medium uppercase text-slate-400">Direction</label>
+                                <select
+                                  value={editRelDirectionality}
+                                  onChange={(e) => setEditRelDirectionality(e.target.value)}
+                                  className="input py-1 text-xs"
+                                >
+                                  <option value="DIRECTED">Directed</option>
+                                  <option value="BIDIRECTIONAL">Bidirectional</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-[10px] font-medium uppercase text-slate-400">Sentiment Impact</label>
+                                <select
+                                  value={editRelSentimentImpact}
+                                  onChange={(e) => setEditRelSentimentImpact(+e.target.value)}
+                                  className="input py-1 text-xs"
+                                >
+                                  <option value={1}>Positive (+1)</option>
+                                  <option value={0}>Neutral (0)</option>
+                                  <option value={-1}>Negative (−1)</option>
+                                </select>
+                              </div>
+                            </div>
                             <div>
                               <label className="text-[10px] font-medium uppercase text-slate-400">Notes</label>
                               <input
@@ -732,6 +874,40 @@ export function MapPage() {
                 </ul>
               )}
             </div>
+
+            {/* Notes */}
+            {selectedStakeholder.notes && (
+              <div className="p-5">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Notes</p>
+                <p className="whitespace-pre-wrap text-xs text-slate-600">{selectedStakeholder.notes}</p>
+              </div>
+            )}
+
+            {/* Contact links */}
+            {(selectedStakeholder.email || selectedStakeholder.linkedin_url || selectedStakeholder.phone) && (
+              <div className="p-5">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-400">Contact</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedStakeholder.email && (
+                    <a href={`mailto:${selectedStakeholder.email}`} className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-gray-200">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                      Email
+                    </a>
+                  )}
+                  {selectedStakeholder.linkedin_url && (
+                    <a href={selectedStakeholder.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-600 hover:bg-blue-100">
+                      LinkedIn
+                    </a>
+                  )}
+                  {selectedStakeholder.phone && (
+                    <a href={`tel:${selectedStakeholder.phone}`} className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs text-slate-600 hover:bg-gray-200">
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
+                      {selectedStakeholder.phone}
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -59,9 +59,14 @@ export function StakeholderList() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Stakeholders</h1>
-        <Link to="/stakeholders/new" className="btn-primary">
-          Add Stakeholder
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link to="/stakeholders/archived" className="text-sm text-slate-500 hover:text-slate-700">
+            View archived
+          </Link>
+          <Link to="/stakeholders/new" className="btn-primary">
+            Add Stakeholder
+          </Link>
+        </div>
       </div>
       <div className="glass-card-solid mb-6 p-5">
         <h3 className="mb-3 text-sm font-semibold text-slate-900">Import from CSV</h3>

@@ -104,8 +104,13 @@ function convexHull(points: { x: number; y: number }[], padding: number): { x: n
   });
 }
 
+export type LayoutName = 'cose' | 'breadthfirst' | 'circle';
+
 export interface GraphCanvasHandle {
   exportPng: () => string | null;
+  runLayout: (name: LayoutName) => void;
+  highlightPath: (fromId: string, toId: string) => boolean;
+  clearHighlight: () => void;
 }
 
 interface ContextMenuState {
@@ -144,6 +149,46 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
     exportPng: () => {
       if (!cyRef.current) return null;
       return cyRef.current.png({ output: 'base64uri', bg: '#ffffff', full: true, scale: 2 });
+    },
+
+    runLayout: (name: LayoutName) => {
+      const cy = cyRef.current;
+      if (!cy) return;
+      const layoutOptions: Record<string, object> = {
+        cose: { name: 'cose', animate: true, padding: 60, randomize: false },
+        breadthfirst: { name: 'breadthfirst', directed: true, animate: true, padding: 60, spacingFactor: 1.5 },
+        circle: { name: 'circle', animate: true, padding: 60 },
+      };
+      const layout = cy.layout(layoutOptions[name] as cytoscape.LayoutOptions);
+      layout.on('layoutstop', async () => {
+        const layoutsToUpsert = cy.nodes().map((n) => {
+          const pos = (n as NodeSingular).position();
+          return { map_id: DEFAULT_MAP_ID, stakeholder_id: n.id(), x: pos.x, y: pos.y, updated_at: new Date().toISOString() };
+        });
+        try {
+          await supabase.from('map_layouts').upsert(layoutsToUpsert, { onConflict: 'map_id,stakeholder_id' });
+          onLayoutChange?.();
+        } catch (e) {
+          console.error('Failed to save layout after auto-arrange:', e);
+        }
+      });
+      layout.run();
+    },
+
+    highlightPath: (fromId: string, toId: string): boolean => {
+      const cy = cyRef.current;
+      if (!cy) return false;
+      cy.elements().removeClass('dimmed');
+      const dijkstra = cy.elements().dijkstra({ root: cy.$id(fromId), directed: false });
+      const path = dijkstra.pathTo(cy.$id(toId));
+      if (!path || path.length === 0) return false;
+      cy.elements().addClass('dimmed');
+      path.removeClass('dimmed');
+      return true;
+    },
+
+    clearHighlight: () => {
+      cyRef.current?.elements().removeClass('dimmed');
     },
   }));
 
@@ -383,10 +428,26 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       },
       userZoomingEnabled: true,
       userPanningEnabled: true,
-      boxSelectionEnabled: true,
+      boxSelectionEnabled: false, // off by default; Shift+drag enables it
     });
 
     cyRef.current = cy;
+
+    // Shift+drag = box-select, plain drag = pan
+    function handleShiftDown(e: KeyboardEvent) {
+      if (e.key === 'Shift' && cyRef.current) {
+        cyRef.current.boxSelectionEnabled(true);
+        cyRef.current.panningEnabled(false);
+      }
+    }
+    function handleShiftUp(e: KeyboardEvent) {
+      if (e.key === 'Shift' && cyRef.current) {
+        cyRef.current.boxSelectionEnabled(false);
+        cyRef.current.panningEnabled(true);
+      }
+    }
+    document.addEventListener('keydown', handleShiftDown);
+    document.addEventListener('keyup', handleShiftUp);
 
     // Node click — select + focus mode
     cy.on('tap', 'node', (evt) => {
@@ -485,25 +546,33 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       });
     });
 
-    // Save position on drag
+    // Save position on drag — handles single node and multi-select drag
     cy.on('dragfree', 'node', async (evt) => {
       const node = evt.target;
-      const pos = node.position();
-      const stakeholderId = node.id();
+      const selectedNodes = cy.nodes(':selected');
+
+      // If the grabbed node is part of a multi-selection, persist all selected nodes.
+      // Otherwise persist only the grabbed node.
+      const nodesToSave =
+        selectedNodes.length > 1 && selectedNodes.has(node)
+          ? selectedNodes.toArray()
+          : [node];
+
+      const layoutsToUpsert = nodesToSave.map((n) => {
+        const pos = (n as NodeSingular).position();
+        return {
+          map_id: DEFAULT_MAP_ID,
+          stakeholder_id: n.id(),
+          x: pos.x,
+          y: pos.y,
+          updated_at: new Date().toISOString(),
+        };
+      });
 
       try {
         const { error: upsertErr } = await supabase
           .from('map_layouts')
-          .upsert(
-            {
-              map_id: DEFAULT_MAP_ID,
-              stakeholder_id: stakeholderId,
-              x: pos.x,
-              y: pos.y,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'map_id,stakeholder_id' }
-          );
+          .upsert(layoutsToUpsert, { onConflict: 'map_id,stakeholder_id' });
         if (upsertErr) throw upsertErr;
         onLayoutChange?.();
       } catch (e) {
@@ -519,6 +588,8 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
     return () => {
       cy.destroy();
       cyRef.current = null;
+      document.removeEventListener('keydown', handleShiftDown);
+      document.removeEventListener('keyup', handleShiftUp);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stakeholders, relationships, layouts, layoutMap, onNodeClick, onLayoutChange, drawHulls]);

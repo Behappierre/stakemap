@@ -17,6 +17,7 @@ export interface Company {
   region: string | null;
   parent_company_id: string | null;
   tags: string[];
+  status: string;
   created_at: string;
   updated_at: string;
 }
@@ -31,10 +32,26 @@ export interface Stakeholder {
   influence_score: number | null;
   sentiment: SentimentType;
   sentiment_confidence: number | null;
+  notes: string | null;
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
   status: string;
   created_at: string;
   updated_at: string;
   companies?: Company;
+}
+
+export interface InteractionLog {
+  id: string;
+  stakeholder_id: string;
+  interaction_date: string;
+  channel: string | null;
+  summary: string;
+  outcome: string | null;
+  next_action: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Relationship {
@@ -69,6 +86,15 @@ export interface Map {
   name: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AuditEvent {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  diff_json: Record<string, unknown> | null;
+  changed_at: string;
 }
 
 export interface Database {

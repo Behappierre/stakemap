@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { InteractionLogSection } from '../../components/stakeholders/InteractionLogSection';
+import { logAudit } from '../../lib/audit';
 import type { Stakeholder } from '../../types/database';
 import type { Company } from '../../types/database';
 import type { SentimentType, SeniorityLevel } from '../../types/database';
@@ -25,6 +27,10 @@ export function StakeholderForm() {
     influence_score: 3,
     sentiment: 'UNKNOWN' as SentimentType,
     sentiment_confidence: 3,
+    notes: '',
+    email: '',
+    phone: '',
+    linkedin_url: '',
   });
 
   useEffect(() => {
@@ -54,6 +60,10 @@ export function StakeholderForm() {
         influence_score: s.influence_score ?? 3,
         sentiment: s.sentiment,
         sentiment_confidence: s.sentiment_confidence ?? 3,
+        notes: s.notes || '',
+        email: s.email || '',
+        phone: s.phone || '',
+        linkedin_url: s.linkedin_url || '',
       });
       setLoading(false);
     }
@@ -72,6 +82,10 @@ export function StakeholderForm() {
       influence_score: form.influence_score,
       sentiment: form.sentiment,
       sentiment_confidence: form.sentiment_confidence,
+      notes: form.notes.trim() || null,
+      email: form.email.trim() || null,
+      phone: form.phone.trim() || null,
+      linkedin_url: form.linkedin_url.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -79,12 +93,14 @@ export function StakeholderForm() {
       if (isEdit) {
         const { error: err } = await supabase.from('stakeholders').update(payload).eq('id', id!);
         if (err) throw err;
+        logAudit('stakeholder', id!, 'update', { name: payload.full_name });
       } else {
-        const { error: err } = await supabase.from('stakeholders').insert({
+        const { data: inserted, error: err } = await supabase.from('stakeholders').insert({
           ...payload,
           updated_at: undefined,
-        });
+        }).select('id').single();
         if (err) throw err;
+        if (inserted) logAudit('stakeholder', (inserted as { id: string }).id, 'create', { name: payload.full_name });
       }
       navigate('/stakeholders');
     } catch (e) {
@@ -99,6 +115,7 @@ export function StakeholderForm() {
     try {
       const { error: err } = await supabase.from('stakeholders').update({ status: 'archived' }).eq('id', id);
       if (err) throw err;
+      logAudit('stakeholder', id, 'archive');
       navigate('/stakeholders');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete');
@@ -208,6 +225,42 @@ export function StakeholderForm() {
             className="input"
           />
         </div>
+        <div>
+          <label className="label">Notes</label>
+          <textarea
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            rows={3}
+            placeholder="Context, background, observations…"
+            className="input resize-none"
+          />
+        </div>
+        <div>
+          <p className="label mb-2">Contact (optional)</p>
+          <div className="space-y-2">
+            <input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="Email"
+              className="input"
+            />
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="Phone"
+              className="input"
+            />
+            <input
+              type="url"
+              value={form.linkedin_url}
+              onChange={(e) => setForm((f) => ({ ...f, linkedin_url: e.target.value }))}
+              placeholder="LinkedIn URL"
+              className="input"
+            />
+          </div>
+        </div>
         <div className="flex flex-wrap gap-3 pt-2">
           <button type="submit" className="btn-primary">
             {isEdit ? 'Save' : 'Create'}
@@ -231,6 +284,11 @@ export function StakeholderForm() {
           )}
         </div>
       </form>
+      {isEdit && id && (
+        <div className="mt-8 max-w-md">
+          <InteractionLogSection stakeholderId={id} />
+        </div>
+      )}
     </div>
   );
 }
