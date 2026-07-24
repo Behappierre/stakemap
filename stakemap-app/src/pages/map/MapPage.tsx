@@ -12,6 +12,13 @@ import { logAudit } from '../../lib/audit';
 import type { Stakeholder } from '../../types/database';
 import type { Relationship, RelationType } from '../../types/database';
 import type { MapLayout } from '../../types/database';
+import {
+  canonicalReadsEnabled,
+  fetchStakeholderSourceAliases,
+  fetchStakeholders,
+  remapLegacyLayouts,
+  remapLegacyRelationships,
+} from '../../lib/canonical';
 
 const RELATION_TYPES: RelationType[] = [
   'REPORTS_TO', 'PEER_OF', 'INFLUENCES', 'COLLABORATES_WITH',
@@ -247,6 +254,12 @@ export function MapPage() {
   }
 
   async function deleteStakeholder(id: string) {
+    if (canonicalReadsEnabled) {
+      window.alert(
+        'Stakeholder changes are paused while canonical reads are validated.',
+      );
+      return;
+    }
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeleting(true);
     try {
@@ -305,14 +318,26 @@ export function MapPage() {
   }
 
   async function loadData() {
-    const [stakeholdersRes, relationshipsRes, layoutsRes] = await Promise.all([
-      supabase.from('stakeholders').select('*, companies(name)').eq('status', 'active'),
+    const [canonicalStakeholders, aliases, relationshipsRes, layoutsRes] =
+      await Promise.all([
+      fetchStakeholders('active'),
+      fetchStakeholderSourceAliases(),
       supabase.from('relationships').select('*'),
       supabase.from('map_layouts').select('*').eq('map_id', DEFAULT_MAP_ID),
     ]);
-    setStakeholders((stakeholdersRes.data as Stakeholder[]) || []);
-    setRelationships((relationshipsRes.data as Relationship[]) || []);
-    setLayouts((layoutsRes.data as MapLayout[]) || []);
+    setStakeholders(canonicalStakeholders);
+    setRelationships(
+      remapLegacyRelationships(
+        (relationshipsRes.data as Relationship[] | null) ?? [],
+        aliases,
+      ),
+    );
+    setLayouts(
+      remapLegacyLayouts(
+        (layoutsRes.data as MapLayout[] | null) ?? [],
+        aliases,
+      ),
+    );
     setLoading(false);
   }
 
@@ -359,7 +384,13 @@ export function MapPage() {
   // Context menu handler
   function handleContextAction(action: string, target: { stakeholder?: Stakeholder; edgeId?: string }) {
     if (action === 'edit' && target.stakeholder) {
-      navigate(`/stakeholders/${target.stakeholder.id}/edit`);
+      if (canonicalReadsEnabled) {
+        window.alert(
+          'Stakeholder changes are paused while canonical reads are validated.',
+        );
+      } else {
+        navigate(`/stakeholders/${target.stakeholder.id}/edit`);
+      }
     } else if (action === 'add-relationship' && target.stakeholder) {
       setSelectedStakeholder(target.stakeholder);
       setShowAddRelationship(true);
@@ -387,6 +418,13 @@ export function MapPage() {
   return (
     <div className="flex h-[calc(100vh-7rem)] gap-6">
       <div className="flex-1">
+        {canonicalReadsEnabled && (
+          <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+            Canonical companies and stakeholders are live in this preview.
+            Relationships, layouts and interactions remain in the legacy
+            StakeMap feature store.
+          </div>
+        )}
         {/* Toolbar */}
         <div className="mb-3 flex items-center gap-2">
           {/* --- Filter group --- */}
@@ -733,25 +771,29 @@ export function MapPage() {
             <div className="p-5">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">Actions</p>
               <div className="flex flex-wrap gap-2">
-                <Link
-                  to={`/stakeholders/${selectedStakeholder.id}/edit`}
-                  className="btn-secondary py-1.5 text-xs"
-                >
-                  Edit
-                </Link>
+                {!canonicalReadsEnabled && (
+                  <Link
+                    to={`/stakeholders/${selectedStakeholder.id}/edit`}
+                    className="btn-secondary py-1.5 text-xs"
+                  >
+                    Edit
+                  </Link>
+                )}
                 <button
                   onClick={() => setShowAddRelationship(true)}
                   className="btn-secondary py-1.5 text-xs"
                 >
                   Add Relationship
                 </button>
-                <button
-                  onClick={() => deleteStakeholder(selectedStakeholder.id)}
-                  disabled={deleting}
-                  className="btn-danger py-1.5 text-xs disabled:opacity-50"
-                >
-                  {deleting ? 'Archiving...' : 'Archive'}
-                </button>
+                {!canonicalReadsEnabled && (
+                  <button
+                    onClick={() => deleteStakeholder(selectedStakeholder.id)}
+                    disabled={deleting}
+                    className="btn-danger py-1.5 text-xs disabled:opacity-50"
+                  >
+                    {deleting ? 'Archiving...' : 'Archive'}
+                  </button>
+                )}
               </div>
             </div>
 

@@ -6,10 +6,12 @@
 [context.deploy-preview.environment]
   VITE_AUTH_SUPABASE_URL = "https://rpqyuzgfgjinnqdlqqcq.supabase.co"
   VITE_AUTH_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_QW6QEQInVbn1Q2slsAhe3g_jcwPZfB4"
+  VITE_CANONICAL_READS_ENABLED = "true"
 
 [context.branch-deploy.environment]
   VITE_AUTH_SUPABASE_URL = "https://rpqyuzgfgjinnqdlqqcq.supabase.co"
   VITE_AUTH_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_QW6QEQInVbn1Q2slsAhe3g_jcwPZfB4"
+  VITE_CANONICAL_READS_ENABLED = "true"
 
 # SPA: serve index.html for all routes
 [[redirects]]

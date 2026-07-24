@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { InteractionLog } from '../../types/database';
+import { getLegacySourceIds } from '../../lib/canonical';
 
 const CHANNEL_OPTIONS = ['email', 'call', 'meeting', 'message', 'other'];
 
@@ -22,10 +23,11 @@ export function InteractionLogSection({ stakeholderId }: Props) {
   });
 
   async function fetchLogs() {
+    const sourceIds = await getLegacySourceIds(stakeholderId);
     const { data } = await supabase
       .from('interaction_logs')
       .select('*')
-      .eq('stakeholder_id', stakeholderId)
+      .in('stakeholder_id', sourceIds)
       .order('interaction_date', { ascending: false });
     setLogs((data as InteractionLog[]) || []);
     setLoading(false);

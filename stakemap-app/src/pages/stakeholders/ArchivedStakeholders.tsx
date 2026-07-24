@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { logAudit } from '../../lib/audit';
-import type { Stakeholder } from '../../types/database';
+import {
+  canonicalReadsEnabled,
+  fetchStakeholders,
+  type StakeholderWithCompany,
+} from '../../lib/canonical';
 
 const SENTIMENT_BADGE: Record<string, string> = {
   ALLY: 'badge badge-ally',
@@ -12,20 +16,14 @@ const SENTIMENT_BADGE: Record<string, string> = {
 };
 
 export function ArchivedStakeholders() {
-  const [stakeholders, setStakeholders] = useState<(Stakeholder & { companies: { name: string } })[]>([]);
+  const [stakeholders, setStakeholders] = useState<StakeholderWithCompany[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
   async function fetchArchived() {
     try {
-      const { data, error: err } = await supabase
-        .from('stakeholders')
-        .select('*, companies(name)')
-        .eq('status', 'archived')
-        .order('full_name');
-      if (err) throw err;
-      setStakeholders((data as (Stakeholder & { companies: { name: string } })[]) || []);
+      setStakeholders(await fetchStakeholders('archived'));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load archived stakeholders');
     } finally {
@@ -60,7 +58,11 @@ export function ArchivedStakeholders() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Archived Stakeholders</h1>
-          <p className="mt-1 text-sm text-slate-500">Restore any stakeholder to make them visible again on the map.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            {canonicalReadsEnabled
+              ? 'Shared canonical archived records are read-only during preview validation.'
+              : 'Restore any stakeholder to make them visible again on the map.'}
+          </p>
         </div>
         <Link to="/stakeholders" className="btn-secondary">
           ← Back to Stakeholders
@@ -93,13 +95,19 @@ export function ArchivedStakeholders() {
                     </span>
                   </td>
                   <td className="text-right">
-                    <button
-                      onClick={() => restore(s.id)}
-                      disabled={restoringId === s.id}
-                      className="font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
-                    >
-                      {restoringId === s.id ? 'Restoring...' : 'Restore'}
-                    </button>
+                    {canonicalReadsEnabled ? (
+                      <span className="text-xs font-medium text-indigo-600">
+                        Canonical
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => restore(s.id)}
+                        disabled={restoringId === s.id}
+                        className="font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                      >
+                        {restoringId === s.id ? 'Restoring...' : 'Restore'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

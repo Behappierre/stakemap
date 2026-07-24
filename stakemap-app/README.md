@@ -24,6 +24,7 @@ VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_AUTH_SUPABASE_URL=https://your-shared-project.supabase.co
 VITE_AUTH_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_CANONICAL_READS_ENABLED=false
 ```
 
 Find these in Supabase: **Project Settings → API**.
@@ -31,6 +32,11 @@ Find these in Supabase: **Project Settings → API**.
 The first pair remains the StakeMap data project during the staged cutover. The
 second pair is the shared To-do Tracker identity project. Use only a publishable
 key in the Vite application; never expose a secret or `service_role` key.
+
+Set `VITE_CANONICAL_READS_ENABLED=true` only in a validation environment to
+read companies and stakeholders from the shared workspace. While enabled,
+direct company/stakeholder changes are paused; relationships, map layouts,
+interaction logs and audit events continue to use the legacy StakeMap project.
 
 ### 3. Install & Run
 

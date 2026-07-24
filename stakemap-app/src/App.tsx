@@ -10,6 +10,8 @@ import { AuditLog } from './pages/audit/AuditLog';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
+import { CanonicalWriteBoundary } from './components/shared/CanonicalWriteBoundary';
+import { canonicalReadsEnabled } from './lib/canonical';
 
 function App() {
   return (
@@ -21,17 +23,50 @@ function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<MapPage />} />
               <Route path="companies" element={<CompanyList />} />
-              <Route path="companies/new" element={<CompanyForm />} />
-              <Route path="companies/:id/edit" element={<CompanyForm />} />
+              <Route
+                path="companies/new"
+                element={
+                  canonicalReadsEnabled ? (
+                    <CanonicalWriteBoundary entity="company" />
+                  ) : (
+                    <CompanyForm />
+                  )
+                }
+              />
+              <Route
+                path="companies/:id/edit"
+                element={
+                  canonicalReadsEnabled ? (
+                    <CanonicalWriteBoundary entity="company" />
+                  ) : (
+                    <CompanyForm />
+                  )
+                }
+              />
               <Route path="stakeholders" element={<StakeholderList />} />
-              <Route path="stakeholders/new" element={<StakeholderForm />} />
               <Route
                 path="stakeholders/archived"
                 element={<ArchivedStakeholders />}
               />
               <Route
                 path="stakeholders/:id/edit"
-                element={<StakeholderForm />}
+                element={
+                  canonicalReadsEnabled ? (
+                    <CanonicalWriteBoundary entity="stakeholder" />
+                  ) : (
+                    <StakeholderForm />
+                  )
+                }
+              />
+              <Route
+                path="stakeholders/new"
+                element={
+                  canonicalReadsEnabled ? (
+                    <CanonicalWriteBoundary entity="stakeholder" />
+                  ) : (
+                    <StakeholderForm />
+                  )
+                }
               />
               <Route path="audit" element={<AuditLog />} />
             </Route>

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import type { Stakeholder } from '../../types/database';
 import type { Company } from '../../types/database';
 import type { RelationType } from '../../types/database';
+import { fetchStakeholders } from '../../lib/canonical';
 
 const RELATION_TYPES: RelationType[] = [
   'REPORTS_TO',
@@ -32,14 +33,9 @@ export function AddRelationshipForm({ onAdded, fromStakeholderId }: AddRelations
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('stakeholders')
-        .select('*, companies(name)')
-        .eq('status', 'active')
-        .order('full_name');
-      setStakeholders((data as (Stakeholder & { companies: Company })[]) || []);
+      setStakeholders(await fetchStakeholders('active'));
     }
-    load();
+    void load();
   }, []);
 
   useEffect(() => {
