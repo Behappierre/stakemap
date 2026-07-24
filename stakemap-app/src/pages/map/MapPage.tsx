@@ -5,6 +5,7 @@ import type { GraphCanvasHandle, LayoutName } from '../../components/graph/Graph
 import { CompanyFilter } from '../../components/graph/CompanyFilter';
 import { MapFilters } from '../../components/graph/MapFilters';
 import { AddRelationshipForm } from '../../components/relationships/AddRelationshipForm';
+import { InteractionLogSection } from '../../components/stakeholders/InteractionLogSection';
 import { supabase } from '../../lib/supabase';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
 import { exportStakeholdersCsv, exportRelationshipsCsv } from '../../lib/csvTemplate';
@@ -916,6 +917,16 @@ export function MapPage() {
                 </ul>
               )}
             </div>
+
+            {canonicalReadsEnabled && (
+              <div className="p-5">
+                <InteractionLogSection
+                  key={selectedStakeholder.id}
+                  stakeholderId={selectedStakeholder.id}
+                  readOnly
+                />
+              </div>
+            )}
 
             {/* Notes */}
             {selectedStakeholder.notes && (
