@@ -22,9 +22,15 @@ Edit `.env` and add your Supabase credentials:
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_AUTH_SUPABASE_URL=https://your-shared-project.supabase.co
+VITE_AUTH_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
 Find these in Supabase: **Project Settings → API**.
+
+The first pair remains the StakeMap data project during the staged cutover. The
+second pair is the shared To-do Tracker identity project. Use only a publishable
+key in the Vite application; never expose a secret or `service_role` key.
 
 ### 3. Install & Run
 
@@ -42,6 +48,7 @@ Open [http://localhost:5173](http://localhost:5173).
 - **Relationships** – Add links between stakeholders (Reports To, Collaborates With, etc.)
 - **Graph Map** – Interactive force-directed view with color-coded nodes by sentiment
 - **Layout Persistence** – Drag nodes to reposition; positions are saved to the database
+- **Shared Authentication** – Existing users sign in with their To-do Tracker account
 
 ## Tech Stack
 
