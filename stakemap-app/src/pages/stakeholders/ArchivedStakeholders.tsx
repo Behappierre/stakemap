@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
 import { logAudit } from '../../lib/audit';
 import {
+  canonicalEntityClient,
   canonicalReadsEnabled,
+  canonicalWritesEnabled,
   fetchStakeholders,
   type StakeholderWithCompany,
 } from '../../lib/canonical';
@@ -39,9 +40,12 @@ export function ArchivedStakeholders() {
     if (!window.confirm('Restore this stakeholder? They will reappear on the map.')) return;
     setRestoringId(id);
     try {
-      const { error: err } = await supabase.from('stakeholders').update({ status: 'active' }).eq('id', id);
+      const { error: err } = await canonicalEntityClient
+        .from('stakeholders')
+        .update({ status: 'active' })
+        .eq('id', id);
       if (err) throw err;
-      logAudit('stakeholder', id, 'restore');
+      await logAudit('stakeholder', id, 'restore');
       await fetchArchived();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to restore');
@@ -59,7 +63,7 @@ export function ArchivedStakeholders() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Archived Stakeholders</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {canonicalReadsEnabled
+            {canonicalReadsEnabled && !canonicalWritesEnabled
               ? 'Shared canonical archived records are read-only during preview validation.'
               : 'Restore any stakeholder to make them visible again on the map.'}
           </p>
@@ -95,7 +99,7 @@ export function ArchivedStakeholders() {
                     </span>
                   </td>
                   <td className="text-right">
-                    {canonicalReadsEnabled ? (
+                    {canonicalReadsEnabled && !canonicalWritesEnabled ? (
                       <span className="text-xs font-medium text-indigo-600">
                         Canonical
                       </span>

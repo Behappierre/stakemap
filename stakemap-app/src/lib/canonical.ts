@@ -1,5 +1,6 @@
 import { authSupabase } from './auth';
 import { supabase } from './supabase';
+import { getFeatureWorkspaceId } from './featureStore';
 import type {
   Company,
   MapLayout,
@@ -9,6 +10,31 @@ import type {
 
 export const canonicalReadsEnabled =
   import.meta.env.VITE_CANONICAL_READS_ENABLED === 'true';
+
+export const canonicalWritesEnabled =
+  canonicalReadsEnabled &&
+  import.meta.env.VITE_CANONICAL_WRITES_ENABLED === 'true';
+
+export const canonicalEntityClient = canonicalWritesEnabled
+  ? authSupabase
+  : supabase;
+
+export function normalizeCanonicalName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export async function scopeCanonicalInsert<
+  T extends Record<string, unknown>,
+>(row: T): Promise<T | (T & { workspace_id: string })> {
+  if (!canonicalWritesEnabled) return row;
+
+  const workspaceId = await getFeatureWorkspaceId();
+  if (!workspaceId) {
+    throw new Error('The shared stakeholder workspace is unavailable.');
+  }
+
+  return { ...row, workspace_id: workspaceId };
+}
 
 export interface StakeholderSourceAlias {
   source_stakeholder_id: string;

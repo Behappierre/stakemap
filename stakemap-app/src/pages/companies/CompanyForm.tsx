@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { logAudit } from '../../lib/audit';
+import {
+  canonicalEntityClient,
+  normalizeCanonicalName,
+  scopeCanonicalInsert,
+} from '../../lib/canonical';
 import type { Company } from '../../types/database';
 
 export function CompanyForm() {
@@ -21,7 +26,11 @@ export function CompanyForm() {
 
   useEffect(() => {
     async function loadAll() {
-      const { data } = await supabase.from('companies').select('*').eq('status', 'active').order('name');
+      const { data } = await canonicalEntityClient
+        .from('companies')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
       setAllCompanies((data as Company[]) || []);
     }
     loadAll();
@@ -31,7 +40,11 @@ export function CompanyForm() {
     const loadId = id;
     if (!loadId) return;
     async function load() {
-      const { data, error: err } = await supabase.from('companies').select('*').eq('id', loadId).single();
+      const { data, error: err } = await canonicalEntityClient
+        .from('companies')
+        .select('*')
+        .eq('id', loadId)
+        .single();
       if (err) {
         setError(err.message);
         return;
@@ -55,6 +68,7 @@ export function CompanyForm() {
     const tags = form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [];
     const payload = {
       name: form.name.trim(),
+      normalized_name: normalizeCanonicalName(form.name),
       industry: form.industry.trim() || null,
       region: form.region.trim() || null,
       parent_company_id: form.parent_company_id || null,
@@ -64,14 +78,31 @@ export function CompanyForm() {
 
     try {
       if (isEdit) {
-        const { error: err } = await supabase.from('companies').update(payload).eq('id', id!);
+        const { error: err } = await canonicalEntityClient
+          .from('companies')
+          .update(payload)
+          .eq('id', id!);
         if (err) throw err;
+        await logAudit('company', id!, 'update', { name: payload.name });
       } else {
-        const { error: err } = await supabase.from('companies').insert({
+        const insertPayload = await scopeCanonicalInsert({
           ...payload,
           updated_at: undefined,
         });
+        const { data: inserted, error: err } = await canonicalEntityClient
+          .from('companies')
+          .insert(insertPayload)
+          .select('id')
+          .single();
         if (err) throw err;
+        if (inserted) {
+          await logAudit(
+            'company',
+            (inserted as { id: string }).id,
+            'create',
+            { name: payload.name },
+          );
+        }
       }
       navigate('/companies');
     } catch (e) {
@@ -81,7 +112,7 @@ export function CompanyForm() {
 
   async function handleDelete() {
     if (!id) return;
-    const { count } = await supabase
+    const { count } = await canonicalEntityClient
       .from('stakeholders')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', id)
@@ -93,8 +124,12 @@ export function CompanyForm() {
     if (!window.confirm('Archive this company?')) return;
     setDeleting(true);
     try {
-      const { error: err } = await supabase.from('companies').update({ status: 'archived' }).eq('id', id);
+      const { error: err } = await canonicalEntityClient
+        .from('companies')
+        .update({ status: 'archived' })
+        .eq('id', id);
       if (err) throw err;
+      await logAudit('company', id, 'archive');
       navigate('/companies');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to archive');

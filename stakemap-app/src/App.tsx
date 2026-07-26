@@ -11,7 +11,10 @@ import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CanonicalWriteBoundary } from './components/shared/CanonicalWriteBoundary';
-import { canonicalReadsEnabled } from './lib/canonical';
+import {
+  canonicalReadsEnabled,
+  canonicalWritesEnabled,
+} from './lib/canonical';
 
 function App() {
   return (
@@ -26,7 +29,7 @@ function App() {
               <Route
                 path="companies/new"
                 element={
-                  canonicalReadsEnabled ? (
+                  canonicalReadsEnabled && !canonicalWritesEnabled ? (
                     <CanonicalWriteBoundary entity="company" />
                   ) : (
                     <CompanyForm />
@@ -36,7 +39,7 @@ function App() {
               <Route
                 path="companies/:id/edit"
                 element={
-                  canonicalReadsEnabled ? (
+                  canonicalReadsEnabled && !canonicalWritesEnabled ? (
                     <CanonicalWriteBoundary entity="company" />
                   ) : (
                     <CompanyForm />
@@ -51,7 +54,7 @@ function App() {
               <Route
                 path="stakeholders/:id/edit"
                 element={
-                  canonicalReadsEnabled ? (
+                  canonicalReadsEnabled && !canonicalWritesEnabled ? (
                     <CanonicalWriteBoundary entity="stakeholder" />
                   ) : (
                     <StakeholderForm />
@@ -61,7 +64,7 @@ function App() {
               <Route
                 path="stakeholders/new"
                 element={
-                  canonicalReadsEnabled ? (
+                  canonicalReadsEnabled && !canonicalWritesEnabled ? (
                     <CanonicalWriteBoundary entity="stakeholder" />
                   ) : (
                     <StakeholderForm />

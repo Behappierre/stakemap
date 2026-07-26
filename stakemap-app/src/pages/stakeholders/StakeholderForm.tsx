@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
 import { InteractionLogSection } from '../../components/stakeholders/InteractionLogSection';
 import { logAudit } from '../../lib/audit';
+import {
+  canonicalEntityClient,
+  normalizeCanonicalName,
+  scopeCanonicalInsert,
+} from '../../lib/canonical';
 import type { Stakeholder } from '../../types/database';
 import type { Company } from '../../types/database';
 import type { SentimentType, SeniorityLevel } from '../../types/database';
@@ -35,7 +39,11 @@ export function StakeholderForm() {
 
   useEffect(() => {
     async function loadCompanies() {
-      const { data } = await supabase.from('companies').select('*').order('name');
+      const { data } = await canonicalEntityClient
+        .from('companies')
+        .select('*')
+        .eq('status', 'active')
+        .order('name');
       setCompanies((data as Company[]) || []);
     }
     loadCompanies();
@@ -45,7 +53,11 @@ export function StakeholderForm() {
     const loadId = id;
     if (!loadId) return;
     async function load() {
-      const { data, error: err } = await supabase.from('stakeholders').select('*').eq('id', loadId).single();
+      const { data, error: err } = await canonicalEntityClient
+        .from('stakeholders')
+        .select('*')
+        .eq('id', loadId)
+        .single();
       if (err) {
         setError(err.message);
         return;
@@ -75,6 +87,7 @@ export function StakeholderForm() {
     setError(null);
     const payload = {
       full_name: form.full_name.trim(),
+      normalized_name: normalizeCanonicalName(form.full_name),
       title: form.title.trim() || null,
       company_id: form.company_id,
       department: form.department.trim() || null,
@@ -91,16 +104,33 @@ export function StakeholderForm() {
 
     try {
       if (isEdit) {
-        const { error: err } = await supabase.from('stakeholders').update(payload).eq('id', id!);
+        const { error: err } = await canonicalEntityClient
+          .from('stakeholders')
+          .update(payload)
+          .eq('id', id!);
         if (err) throw err;
-        logAudit('stakeholder', id!, 'update', { name: payload.full_name });
+        await logAudit('stakeholder', id!, 'update', {
+          name: payload.full_name,
+        });
       } else {
-        const { data: inserted, error: err } = await supabase.from('stakeholders').insert({
+        const insertPayload = await scopeCanonicalInsert({
           ...payload,
           updated_at: undefined,
-        }).select('id').single();
+        });
+        const { data: inserted, error: err } = await canonicalEntityClient
+          .from('stakeholders')
+          .insert(insertPayload)
+          .select('id')
+          .single();
         if (err) throw err;
-        if (inserted) logAudit('stakeholder', (inserted as { id: string }).id, 'create', { name: payload.full_name });
+        if (inserted) {
+          await logAudit(
+            'stakeholder',
+            (inserted as { id: string }).id,
+            'create',
+            { name: payload.full_name },
+          );
+        }
       }
       navigate('/stakeholders');
     } catch (e) {
@@ -113,9 +143,12 @@ export function StakeholderForm() {
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeleting(true);
     try {
-      const { error: err } = await supabase.from('stakeholders').update({ status: 'archived' }).eq('id', id);
+      const { error: err } = await canonicalEntityClient
+        .from('stakeholders')
+        .update({ status: 'archived' })
+        .eq('id', id);
       if (err) throw err;
-      logAudit('stakeholder', id, 'archive');
+      await logAudit('stakeholder', id, 'archive');
       navigate('/stakeholders');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete');

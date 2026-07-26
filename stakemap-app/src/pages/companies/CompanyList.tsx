@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
 import { logAudit } from '../../lib/audit';
 import type { Company } from '../../types/database';
 import {
+  canonicalEntityClient,
   canonicalReadsEnabled,
+  canonicalWritesEnabled,
   fetchCompanies as loadCompanies,
 } from '../../lib/canonical';
 
@@ -51,7 +52,7 @@ export function CompanyList() {
 
   async function deleteCompany(id: string) {
     // Guard: check for active stakeholders
-    const { count, error: countErr } = await supabase
+    const { count, error: countErr } = await canonicalEntityClient
       .from('stakeholders')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', id)
@@ -64,9 +65,12 @@ export function CompanyList() {
     if (!window.confirm('Archive this company? It will be hidden from all views.')) return;
     setDeletingId(id);
     try {
-      const { error: err } = await supabase.from('companies').update({ status: 'archived' }).eq('id', id);
+      const { error: err } = await canonicalEntityClient
+        .from('companies')
+        .update({ status: 'archived' })
+        .eq('id', id);
       if (err) throw err;
-      logAudit('company', id, 'archive');
+      await logAudit('company', id, 'archive');
       await fetchCompanies();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to archive company');
@@ -82,7 +86,7 @@ export function CompanyList() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
-        {!canonicalReadsEnabled && (
+        {(!canonicalReadsEnabled || canonicalWritesEnabled) && (
           <Link to="/companies/new" className="btn-primary">
             Add Company
           </Link>
@@ -90,8 +94,9 @@ export function CompanyList() {
       </div>
       {canonicalReadsEnabled && (
         <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-          Reading the shared canonical company register. Company changes are
-          paused during preview validation.
+          {canonicalWritesEnabled
+            ? 'Using the shared canonical company register. Changes made here are shared with To-do Tracker.'
+            : 'Reading the shared canonical company register. Company changes are paused during preview validation.'}
         </div>
       )}
       <div className="table-container">
@@ -111,7 +116,7 @@ export function CompanyList() {
                 <td className="text-slate-500">{c.industry || '—'}</td>
                 <td className="text-slate-500">{c.region || '—'}</td>
                 <td className="text-right">
-                  {canonicalReadsEnabled ? (
+                  {canonicalReadsEnabled && !canonicalWritesEnabled ? (
                     <span className="text-xs font-medium text-indigo-600">
                       Canonical
                     </span>
