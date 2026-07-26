@@ -7,6 +7,10 @@ import { MapFilters } from '../../components/graph/MapFilters';
 import { AddRelationshipForm } from '../../components/relationships/AddRelationshipForm';
 import { InteractionLogSection } from '../../components/stakeholders/InteractionLogSection';
 import { supabase } from '../../lib/supabase';
+import {
+  featureSupabase,
+  scopeFeatureRows,
+} from '../../lib/featureStore';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
 import { exportStakeholdersCsv, exportRelationshipsCsv } from '../../lib/csvTemplate';
 import { logAudit } from '../../lib/audit';
@@ -15,10 +19,7 @@ import type { Relationship, RelationType } from '../../types/database';
 import type { MapLayout } from '../../types/database';
 import {
   canonicalReadsEnabled,
-  fetchStakeholderSourceAliases,
   fetchStakeholders,
-  remapLegacyLayouts,
-  remapLegacyRelationships,
 } from '../../lib/canonical';
 
 const RELATION_TYPES: RelationType[] = [
@@ -217,7 +218,10 @@ export function MapPage() {
   async function deleteRelationship(id: string) {
     if (!window.confirm('Delete this relationship?')) return;
     try {
-      const { error } = await supabase.from('relationships').delete().eq('id', id);
+      const { error } = await featureSupabase
+        .from('relationships')
+        .delete()
+        .eq('id', id);
       if (error) throw error;
       logAudit('relationship', id, 'delete');
       await loadData();
@@ -238,7 +242,7 @@ export function MapPage() {
   async function saveRelationship() {
     if (!editingRelId) return;
     try {
-      const { error } = await supabase.from('relationships').update({
+      const { error } = await featureSupabase.from('relationships').update({
         relation_type: editRelType,
         strength: editRelStrength,
         notes: editRelNotes || null,
@@ -306,7 +310,8 @@ export function MapPage() {
           });
         });
       });
-      const { error } = await supabase.from('map_layouts').upsert(layoutsToUpsert, {
+      const scopedLayouts = await scopeFeatureRows(layoutsToUpsert);
+      const { error } = await featureSupabase.from('map_layouts').upsert(scopedLayouts, {
         onConflict: 'map_id,stakeholder_id',
       });
       if (error) throw error;
@@ -319,26 +324,20 @@ export function MapPage() {
   }
 
   async function loadData() {
-    const [canonicalStakeholders, aliases, relationshipsRes, layoutsRes] =
+    const [canonicalStakeholders, relationshipsRes, layoutsRes] =
       await Promise.all([
       fetchStakeholders('active'),
-      fetchStakeholderSourceAliases(),
-      supabase.from('relationships').select('*'),
-      supabase.from('map_layouts').select('*').eq('map_id', DEFAULT_MAP_ID),
+      featureSupabase.from('relationships').select('*'),
+      featureSupabase
+        .from('map_layouts')
+        .select('*')
+        .eq('map_id', DEFAULT_MAP_ID),
     ]);
+    if (relationshipsRes.error) throw relationshipsRes.error;
+    if (layoutsRes.error) throw layoutsRes.error;
     setStakeholders(canonicalStakeholders);
-    setRelationships(
-      remapLegacyRelationships(
-        (relationshipsRes.data as Relationship[] | null) ?? [],
-        aliases,
-      ),
-    );
-    setLayouts(
-      remapLegacyLayouts(
-        (layoutsRes.data as MapLayout[] | null) ?? [],
-        aliases,
-      ),
-    );
+    setRelationships((relationshipsRes.data as Relationship[] | null) ?? []);
+    setLayouts((layoutsRes.data as MapLayout[] | null) ?? []);
     setLoading(false);
   }
 
@@ -923,7 +922,6 @@ export function MapPage() {
                 <InteractionLogSection
                   key={selectedStakeholder.id}
                   stakeholderId={selectedStakeholder.id}
-                  readOnly
                 />
               </div>
             )}

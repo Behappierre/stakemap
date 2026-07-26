@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { featureSupabase } from '../../lib/featureStore';
 import type { AuditEvent } from '../../types/database';
 
 const ACTION_BADGE: Record<string, string> = {
@@ -38,7 +38,7 @@ export function AuditLog() {
 
   useEffect(() => {
     async function fetchEvents() {
-      const { data } = await supabase
+      const { data } = await featureSupabase
         .from('audit_events')
         .select('*')
         .order('changed_at', { ascending: false })

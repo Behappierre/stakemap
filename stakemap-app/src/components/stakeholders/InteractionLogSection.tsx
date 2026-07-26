@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
 import type { InteractionLog } from '../../types/database';
-import { getLegacySourceIds } from '../../lib/canonical';
+import {
+  featureSupabase,
+  scopeFeatureRow,
+  sharedFeatureStoreEnabled,
+} from '../../lib/featureStore';
 
 const CHANNEL_OPTIONS = ['email', 'call', 'meeting', 'message', 'other'];
 
@@ -11,11 +14,10 @@ interface Props {
 }
 
 async function loadInteractionLogs(stakeholderId: string) {
-  const sourceIds = await getLegacySourceIds(stakeholderId);
-  const { data, error } = await supabase
+  const { data, error } = await featureSupabase
     .from('interaction_logs')
     .select('*')
-    .in('stakeholder_id', sourceIds)
+    .eq('stakeholder_id', stakeholderId)
     .order('interaction_date', { ascending: false });
 
   if (error) throw error;
@@ -73,7 +75,7 @@ export function InteractionLogSection({
     if (!form.summary.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from('interaction_logs').insert({
+      const payload = await scopeFeatureRow({
         stakeholder_id: stakeholderId,
         interaction_date: form.interaction_date,
         channel: form.channel || null,
@@ -81,6 +83,9 @@ export function InteractionLogSection({
         outcome: form.outcome.trim() || null,
         next_action: form.next_action.trim() || null,
       });
+      const { error } = await featureSupabase
+        .from('interaction_logs')
+        .insert(payload);
       if (error) throw error;
       setForm({ interaction_date: new Date().toISOString().slice(0, 10), channel: 'meeting', summary: '', outcome: '', next_action: '' });
       setShowForm(false);
@@ -94,7 +99,7 @@ export function InteractionLogSection({
 
   async function deleteEntry(id: string) {
     if (!window.confirm('Delete this interaction log entry?')) return;
-    await supabase.from('interaction_logs').delete().eq('id', id);
+    await featureSupabase.from('interaction_logs').delete().eq('id', id);
     await fetchLogs();
   }
 
@@ -111,7 +116,9 @@ export function InteractionLogSection({
 
       {readOnly && (
         <p className="mb-3 text-xs text-slate-400">
-          Read-only history combined from this stakeholder&apos;s linked StakeMap records.
+          {sharedFeatureStoreEnabled
+            ? 'History stored with this canonical stakeholder.'
+            : 'Read-only history for this stakeholder.'}
         </p>
       )}
 
