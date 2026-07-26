@@ -7,7 +7,7 @@
   VITE_AUTH_SUPABASE_URL = "https://rpqyuzgfgjinnqdlqqcq.supabase.co"
   VITE_AUTH_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_QW6QEQInVbn1Q2slsAhe3g_jcwPZfB4"
   VITE_CANONICAL_READS_ENABLED = "true"
-  VITE_CANONICAL_WRITES_ENABLED = "false"
+  VITE_CANONICAL_WRITES_ENABLED = "true"
 
 [context.deploy-preview.environment]
   VITE_AUTH_SUPABASE_URL = "https://rpqyuzgfgjinnqdlqqcq.supabase.co"
