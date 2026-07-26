@@ -214,4 +214,3 @@ comment on function public.import_canonical_stakeholders(
   jsonb
 ) is
   'Atomically imports validated stakeholder CSV rows using caller RLS and records audit events.';
-
