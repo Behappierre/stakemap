@@ -66,6 +66,9 @@ function normalizeColumnKey(header: string): string {
   ) {
     return 'full_name';
   }
+  if (lower === 'company_id' || lower.startsWith('company_id_')) {
+    return 'company_id';
+  }
   if (lower.startsWith('company')) return 'company';
   if (lower.startsWith('title') || lower === 'job_title') return 'title';
   if (lower.startsWith('department')) return 'department';
@@ -116,14 +119,21 @@ function parseOptionalScore(
 
 function validateRow(
   row: Record<string, string>,
-): { data: CsvStakeholderData; errors: string[] } {
+): {
+  data: CsvStakeholderData;
+  sourceCompanyId: string;
+  errors: string[];
+} {
   const normalized = normalizeRow(row);
   const errors: string[] = [];
   const fullName = normalized.full_name ?? '';
   const company = normalized.company ?? '';
+  const sourceCompanyId = normalized.company_id ?? '';
 
   if (!fullName) errors.push('Full Name is required');
-  if (!company) errors.push('Company is required');
+  if (!company && !sourceCompanyId) {
+    errors.push('Company or Company ID is required');
+  }
 
   let seniorityLevel: SeniorityLevel | null = null;
   if (normalized.seniority_level) {
@@ -172,6 +182,7 @@ function validateRow(
       sentiment,
       sentiment_confidence: sentimentConfidence,
     },
+    sourceCompanyId,
     errors,
   };
 }
@@ -191,7 +202,9 @@ export function buildCsvPreview(
       `Row ${(error.row ?? 0) + 2}: ${error.message || 'CSV parse error'}`,
   );
   const companiesByName = new Map<string, CsvCompanyReference>();
+  const companiesById = new Map<string, CsvCompanyReference>();
   for (const company of companies) {
+    companiesById.set(company.id.toLowerCase(), company);
     const key = normalizeCompanyName(company.name);
     const existing = companiesByName.get(key);
     if (!existing || (existing.status !== 'active' && company.status === 'active')) {
@@ -223,14 +236,40 @@ export function buildCsvPreview(
 
   const rows = parsed.data.slice(0, 500).map((rawRow, index): CsvPreviewRow => {
     const rowNumber = index + 2;
-    const { data, errors } = validateRow(rawRow);
+    const validated = validateRow(rawRow);
+    let data = validated.data;
+    const { sourceCompanyId, errors } = validated;
     const warnings: string[] = [];
-    const company = companiesByName.get(normalizeCompanyName(data.company));
+    let company: CsvCompanyReference | undefined;
     let companyId: string | null = null;
     let companyAction: CsvPreviewRow['companyAction'] = 'create';
     let status: CsvPreviewStatus = errors.length > 0 ? 'error' : 'ready';
 
-    if (company?.status === 'active') {
+    if (sourceCompanyId) {
+      company = companiesById.get(sourceCompanyId.toLowerCase());
+      if (!company) {
+        errors.push(
+          `Company ID "${sourceCompanyId}" is not in the canonical register; replace it with a current company name or ID`,
+        );
+        companyAction = 'blocked';
+        status = 'error';
+      } else if (
+        data.company &&
+        normalizeCompanyName(data.company) !== normalizeCompanyName(company.name)
+      ) {
+        errors.push(
+          `Company name "${data.company}" does not match Company ID "${sourceCompanyId}" (${company.name})`,
+        );
+        companyAction = 'blocked';
+        status = 'error';
+      } else {
+        data = { ...data, company: company.name };
+      }
+    } else {
+      company = companiesByName.get(normalizeCompanyName(data.company));
+    }
+
+    if (company?.status === 'active' && companyAction !== 'blocked') {
       companyId = company.id;
       companyAction = 'existing';
     } else if (company) {
