@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { logAudit } from '../../lib/audit';
 import {
   canonicalEntityClient,
-  normalizeCanonicalName,
   scopeCanonicalInsert,
 } from '../../lib/canonical';
 import type { Company } from '../../types/database';
@@ -68,7 +67,6 @@ export function CompanyForm() {
     const tags = form.tags ? form.tags.split(',').map((t) => t.trim()).filter(Boolean) : [];
     const payload = {
       name: form.name.trim(),
-      normalized_name: normalizeCanonicalName(form.name),
       industry: form.industry.trim() || null,
       region: form.region.trim() || null,
       parent_company_id: form.parent_company_id || null,

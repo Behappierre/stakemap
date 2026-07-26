@@ -19,10 +19,6 @@ export const canonicalEntityClient = canonicalWritesEnabled
   ? authSupabase
   : supabase;
 
-export function normalizeCanonicalName(value: string): string {
-  return value.trim().toLowerCase();
-}
-
 export async function scopeCanonicalInsert<
   T extends Record<string, unknown>,
 >(row: T): Promise<T | (T & { workspace_id: string })> {

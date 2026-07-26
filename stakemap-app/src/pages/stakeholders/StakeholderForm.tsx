@@ -4,7 +4,6 @@ import { InteractionLogSection } from '../../components/stakeholders/Interaction
 import { logAudit } from '../../lib/audit';
 import {
   canonicalEntityClient,
-  normalizeCanonicalName,
   scopeCanonicalInsert,
 } from '../../lib/canonical';
 import type { Stakeholder } from '../../types/database';
@@ -87,7 +86,6 @@ export function StakeholderForm() {
     setError(null);
     const payload = {
       full_name: form.full_name.trim(),
-      normalized_name: normalizeCanonicalName(form.full_name),
       title: form.title.trim() || null,
       company_id: form.company_id,
       department: form.department.trim() || null,
