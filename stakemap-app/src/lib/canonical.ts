@@ -15,20 +15,28 @@ export const canonicalWritesEnabled =
   canonicalReadsEnabled &&
   import.meta.env.VITE_CANONICAL_WRITES_ENABLED === 'true';
 
+export const canonicalCsvImportEnabled =
+  canonicalWritesEnabled &&
+  import.meta.env.VITE_CANONICAL_CSV_IMPORT_ENABLED === 'true';
+
 export const canonicalEntityClient = canonicalWritesEnabled
   ? authSupabase
   : supabase;
+
+export async function getCanonicalWorkspaceId(): Promise<string> {
+  const workspaceId = await getFeatureWorkspaceId();
+  if (!workspaceId) {
+    throw new Error('The shared stakeholder workspace is unavailable.');
+  }
+  return workspaceId;
+}
 
 export async function scopeCanonicalInsert<
   T extends Record<string, unknown>,
 >(row: T): Promise<T | (T & { workspace_id: string })> {
   if (!canonicalWritesEnabled) return row;
 
-  const workspaceId = await getFeatureWorkspaceId();
-  if (!workspaceId) {
-    throw new Error('The shared stakeholder workspace is unavailable.');
-  }
-
+  const workspaceId = await getCanonicalWorkspaceId();
   return { ...row, workspace_id: workspaceId };
 }
 

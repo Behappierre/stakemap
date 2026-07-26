@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { CsvImport } from '../../components/stakeholders/CsvImport';
 import {
   canonicalEntityClient,
+  canonicalCsvImportEnabled,
   canonicalReadsEnabled,
   canonicalWritesEnabled,
   fetchStakeholders as loadStakeholders,
@@ -91,12 +92,21 @@ export function StakeholderList() {
       {canonicalReadsEnabled ? (
         <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
           {canonicalWritesEnabled
-            ? 'Using the shared canonical stakeholder register. Changes made here are shared with To-do Tracker. CSV import remains paused.'
+            ? canonicalCsvImportEnabled
+              ? 'Using the shared canonical stakeholder register. Changes and confirmed CSV imports are shared with To-do Tracker.'
+              : 'Using the shared canonical stakeholder register. Changes made here are shared with To-do Tracker. CSV import remains paused.'
             : 'Reading the shared canonical stakeholder register. Direct stakeholder changes and CSV import are paused during preview validation.'}
         </div>
-      ) : (
+      ) : null}
+      {(!canonicalReadsEnabled || canonicalCsvImportEnabled) && (
         <div className="glass-card-solid mb-6 p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-900">Import from CSV</h3>
+          <h3 className="mb-1 text-sm font-semibold text-slate-900">
+            Import from CSV
+          </h3>
+          <p className="mb-3 text-xs text-slate-500">
+            Validate the file first. Nothing is written until you review the
+            preview and confirm the valid rows.
+          </p>
           <CsvImport onImportComplete={() => setRefreshKey((k) => k + 1)} />
         </div>
       )}
@@ -115,8 +125,8 @@ export function StakeholderList() {
             {stakeholders.map((s) => (
               <tr key={s.id} className="table-row">
                 <td className="font-medium text-slate-900">{s.full_name}</td>
-                <td className="text-slate-500">{s.companies?.name ?? '—'}</td>
-                <td className="text-slate-500">{s.title || '—'}</td>
+                <td className="text-slate-500">{s.companies?.name ?? 'â€”'}</td>
+                <td className="text-slate-500">{s.title || 'â€”'}</td>
                 <td>
                   <span className={SENTIMENT_BADGE[s.sentiment] || 'badge badge-neutral'}>
                     {s.sentiment}
@@ -135,7 +145,7 @@ export function StakeholderList() {
                       >
                         Edit
                       </Link>
-                      {' · '}
+                      {' Â· '}
                       <button
                         onClick={() => deleteStakeholder(s.id)}
                         disabled={deletingId === s.id}
