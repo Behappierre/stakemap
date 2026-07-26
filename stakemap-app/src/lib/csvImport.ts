@@ -287,4 +287,3 @@ export function buildCsvPreview(
 
   return { fileName, rows, parseErrors };
 }
-
