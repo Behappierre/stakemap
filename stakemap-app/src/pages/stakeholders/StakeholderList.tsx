@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
 import { CsvImport } from '../../components/stakeholders/CsvImport';
 import {
+  canonicalEntityClient,
   canonicalReadsEnabled,
+  canonicalWritesEnabled,
   fetchStakeholders as loadStakeholders,
   type StakeholderWithCompany,
 } from '../../lib/canonical';
+import { logAudit } from '../../lib/audit';
 
 const SENTIMENT_BADGE: Record<string, string> = {
   ALLY: 'badge badge-ally',
@@ -26,8 +28,15 @@ export function StakeholderList() {
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeletingId(id);
     try {
-      const { error } = await supabase.from('stakeholders').update({ status: 'archived' }).eq('id', id);
+      const { data, error } = await canonicalEntityClient
+        .from('stakeholders')
+        .update({ status: 'archived' })
+        .eq('id', id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
+      if (data) await logAudit('stakeholder', id, 'archive');
       setRefreshKey((k) => k + 1);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to delete');
@@ -72,7 +81,7 @@ export function StakeholderList() {
           <Link to="/stakeholders/archived" className="text-sm text-slate-500 hover:text-slate-700">
             View archived
           </Link>
-          {!canonicalReadsEnabled && (
+          {(!canonicalReadsEnabled || canonicalWritesEnabled) && (
             <Link to="/stakeholders/new" className="btn-primary">
               Add Stakeholder
             </Link>
@@ -81,8 +90,9 @@ export function StakeholderList() {
       </div>
       {canonicalReadsEnabled ? (
         <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-          Reading the shared canonical stakeholder register. Direct stakeholder
-          changes and CSV import are paused during preview validation.
+          {canonicalWritesEnabled
+            ? 'Using the shared canonical stakeholder register. Changes made here are shared with To-do Tracker. CSV import remains paused.'
+            : 'Reading the shared canonical stakeholder register. Direct stakeholder changes and CSV import are paused during preview validation.'}
         </div>
       ) : (
         <div className="glass-card-solid mb-6 p-5">
@@ -113,7 +123,7 @@ export function StakeholderList() {
                   </span>
                 </td>
                 <td className="text-right">
-                  {canonicalReadsEnabled ? (
+                  {canonicalReadsEnabled && !canonicalWritesEnabled ? (
                     <span className="text-xs font-medium text-indigo-600">
                       Canonical
                     </span>

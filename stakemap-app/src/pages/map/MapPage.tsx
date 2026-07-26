@@ -6,7 +6,6 @@ import { CompanyFilter } from '../../components/graph/CompanyFilter';
 import { MapFilters } from '../../components/graph/MapFilters';
 import { AddRelationshipForm } from '../../components/relationships/AddRelationshipForm';
 import { InteractionLogSection } from '../../components/stakeholders/InteractionLogSection';
-import { supabase } from '../../lib/supabase';
 import {
   featureSupabase,
   scopeFeatureRows,
@@ -18,7 +17,9 @@ import type { Stakeholder } from '../../types/database';
 import type { Relationship, RelationType } from '../../types/database';
 import type { MapLayout } from '../../types/database';
 import {
+  canonicalEntityClient,
   canonicalReadsEnabled,
+  canonicalWritesEnabled,
   fetchStakeholders,
 } from '../../lib/canonical';
 
@@ -259,7 +260,7 @@ export function MapPage() {
   }
 
   async function deleteStakeholder(id: string) {
-    if (canonicalReadsEnabled) {
+    if (canonicalReadsEnabled && !canonicalWritesEnabled) {
       window.alert(
         'Stakeholder changes are paused while canonical reads are validated.',
       );
@@ -268,9 +269,15 @@ export function MapPage() {
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from('stakeholders').update({ status: 'archived' }).eq('id', id);
+      const { data, error } = await canonicalEntityClient
+        .from('stakeholders')
+        .update({ status: 'archived' })
+        .eq('id', id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
-      logAudit('stakeholder', id, 'archive');
+      if (data) await logAudit('stakeholder', id, 'archive');
       setSelectedStakeholder(null);
       await loadData();
     } catch (e) {
@@ -384,7 +391,7 @@ export function MapPage() {
   // Context menu handler
   function handleContextAction(action: string, target: { stakeholder?: Stakeholder; edgeId?: string }) {
     if (action === 'edit' && target.stakeholder) {
-      if (canonicalReadsEnabled) {
+      if (canonicalReadsEnabled && !canonicalWritesEnabled) {
         window.alert(
           'Stakeholder changes are paused while canonical reads are validated.',
         );
@@ -420,8 +427,10 @@ export function MapPage() {
       <div className="flex-1">
         {canonicalReadsEnabled && (
           <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-            Canonical companies and stakeholders are live in this preview.
-            Relationships, layouts, interactions and audit history now use the
+            {canonicalWritesEnabled
+              ? 'Canonical companies and stakeholders are live and editable in this preview. Changes are shared with To-do Tracker.'
+              : 'Canonical companies and stakeholders are live in this preview. Direct company and stakeholder changes remain paused.'}{' '}
+            Relationships, layouts, interactions and audit history use the
             shared workspace feature store.
           </div>
         )}
@@ -771,7 +780,7 @@ export function MapPage() {
             <div className="p-5">
               <p className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-400">Actions</p>
               <div className="flex flex-wrap gap-2">
-                {!canonicalReadsEnabled && (
+                {(!canonicalReadsEnabled || canonicalWritesEnabled) && (
                   <Link
                     to={`/stakeholders/${selectedStakeholder.id}/edit`}
                     className="btn-secondary py-1.5 text-xs"
@@ -785,7 +794,7 @@ export function MapPage() {
                 >
                   Add Relationship
                 </button>
-                {!canonicalReadsEnabled && (
+                {(!canonicalReadsEnabled || canonicalWritesEnabled) && (
                   <button
                     onClick={() => deleteStakeholder(selectedStakeholder.id)}
                     disabled={deleting}
