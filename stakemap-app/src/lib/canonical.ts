@@ -206,4 +206,3 @@ export function remapLegacyLayouts(
 
   return Array.from(layoutByCanonicalId.values(), ({ layout }) => layout);
 }
-
