@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { logAudit } from '../../lib/audit';
 import type { Company } from '../../types/database';
+import {
+  canonicalReadsEnabled,
+  fetchCompanies as loadCompanies,
+} from '../../lib/canonical';
 
 export function CompanyList() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -12,13 +16,7 @@ export function CompanyList() {
 
   async function fetchCompanies() {
     try {
-      const { data, error: err } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('status', 'active')
-        .order('name');
-      if (err) throw err;
-      setCompanies((data as Company[]) || []);
+      setCompanies(await loadCompanies('active'));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load companies');
     } finally {
@@ -27,7 +25,28 @@ export function CompanyList() {
   }
 
   useEffect(() => {
-    fetchCompanies();
+    let active = true;
+
+    void loadCompanies('active')
+      .then((records) => {
+        if (active) setCompanies(records);
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Failed to load companies',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function deleteCompany(id: string) {
@@ -63,10 +82,18 @@ export function CompanyList() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
-        <Link to="/companies/new" className="btn-primary">
-          Add Company
-        </Link>
+        {!canonicalReadsEnabled && (
+          <Link to="/companies/new" className="btn-primary">
+            Add Company
+          </Link>
+        )}
       </div>
+      {canonicalReadsEnabled && (
+        <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+          Reading the shared canonical company register. Company changes are
+          paused during preview validation.
+        </div>
+      )}
       <div className="table-container">
         <table className="w-full">
           <thead className="table-header">
@@ -84,20 +111,28 @@ export function CompanyList() {
                 <td className="text-slate-500">{c.industry || '—'}</td>
                 <td className="text-slate-500">{c.region || '—'}</td>
                 <td className="text-right">
-                  <Link
-                    to={`/companies/${c.id}/edit`}
-                    className="font-medium text-emerald-600 hover:text-emerald-700"
-                  >
-                    Edit
-                  </Link>
-                  {' · '}
-                  <button
-                    onClick={() => deleteCompany(c.id)}
-                    disabled={deletingId === c.id}
-                    className="font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
-                  >
-                    {deletingId === c.id ? 'Archiving...' : 'Archive'}
-                  </button>
+                  {canonicalReadsEnabled ? (
+                    <span className="text-xs font-medium text-indigo-600">
+                      Canonical
+                    </span>
+                  ) : (
+                    <>
+                      <Link
+                        to={`/companies/${c.id}/edit`}
+                        className="font-medium text-emerald-600 hover:text-emerald-700"
+                      >
+                        Edit
+                      </Link>
+                      {' · '}
+                      <button
+                        onClick={() => deleteCompany(c.id)}
+                        disabled={deletingId === c.id}
+                        className="font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {deletingId === c.id ? 'Archiving...' : 'Archive'}
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

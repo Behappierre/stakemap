@@ -1,6 +1,22 @@
 import { Outlet, NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { useAuth } from '../../auth/useAuth';
+import { authSupabase } from '../../lib/auth';
 
 export function AppLayout() {
+  const { user } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    const { error } = await authSupabase.auth.signOut();
+
+    if (error) {
+      window.alert(error.message);
+      setSigningOut(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 text-slate-900">
       <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-lg">
@@ -48,6 +64,19 @@ export function AppLayout() {
             >
               Audit Log
             </NavLink>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="hidden max-w-48 truncate text-xs text-slate-500 sm:block">
+              {user?.email}
+            </span>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="btn-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
           </div>
         </div>
       </nav>

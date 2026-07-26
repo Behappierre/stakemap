@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CsvImport } from '../../components/stakeholders/CsvImport';
-import type { Stakeholder } from '../../types/database';
+import {
+  canonicalReadsEnabled,
+  fetchStakeholders as loadStakeholders,
+  type StakeholderWithCompany,
+} from '../../lib/canonical';
 
 const SENTIMENT_BADGE: Record<string, string> = {
   ALLY: 'badge badge-ally',
@@ -12,7 +16,7 @@ const SENTIMENT_BADGE: Record<string, string> = {
 };
 
 export function StakeholderList() {
-  const [stakeholders, setStakeholders] = useState<(Stakeholder & { companies: { name: string } })[]>([]);
+  const [stakeholders, setStakeholders] = useState<StakeholderWithCompany[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -32,24 +36,29 @@ export function StakeholderList() {
     }
   }
 
-  async function fetchStakeholders() {
-      try {
-        const { data, error: err } = await supabase
-          .from('stakeholders')
-          .select('*, companies(name)')
-          .eq('status', 'active')
-          .order('full_name');
-        if (err) throw err;
-        setStakeholders((data as (Stakeholder & { companies: { name: string } })[]) || []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load stakeholders');
-      } finally {
-        setLoading(false);
-      }
-  }
-
   useEffect(() => {
-    fetchStakeholders();
+    let active = true;
+
+    void loadStakeholders('active')
+      .then((records) => {
+        if (active) setStakeholders(records);
+      })
+      .catch((loadError: unknown) => {
+        if (active) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Failed to load stakeholders',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [refreshKey]);
 
   if (loading) return <div className="text-slate-500">Loading stakeholders...</div>;
@@ -63,15 +72,24 @@ export function StakeholderList() {
           <Link to="/stakeholders/archived" className="text-sm text-slate-500 hover:text-slate-700">
             View archived
           </Link>
-          <Link to="/stakeholders/new" className="btn-primary">
-            Add Stakeholder
-          </Link>
+          {!canonicalReadsEnabled && (
+            <Link to="/stakeholders/new" className="btn-primary">
+              Add Stakeholder
+            </Link>
+          )}
         </div>
       </div>
-      <div className="glass-card-solid mb-6 p-5">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">Import from CSV</h3>
-        <CsvImport onImportComplete={() => setRefreshKey((k) => k + 1)} />
-      </div>
+      {canonicalReadsEnabled ? (
+        <div className="mb-5 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+          Reading the shared canonical stakeholder register. Direct stakeholder
+          changes and CSV import are paused during preview validation.
+        </div>
+      ) : (
+        <div className="glass-card-solid mb-6 p-5">
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">Import from CSV</h3>
+          <CsvImport onImportComplete={() => setRefreshKey((k) => k + 1)} />
+        </div>
+      )}
       <div className="table-container">
         <table className="w-full">
           <thead className="table-header">
@@ -95,20 +113,28 @@ export function StakeholderList() {
                   </span>
                 </td>
                 <td className="text-right">
-                  <Link
-                    to={`/stakeholders/${s.id}/edit`}
-                    className="font-medium text-emerald-600 hover:text-emerald-700"
-                  >
-                    Edit
-                  </Link>
-                  {' · '}
-                  <button
-                    onClick={() => deleteStakeholder(s.id)}
-                    disabled={deletingId === s.id}
-                    className="font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
-                  >
-                    {deletingId === s.id ? 'Deleting...' : 'Delete'}
-                  </button>
+                  {canonicalReadsEnabled ? (
+                    <span className="text-xs font-medium text-indigo-600">
+                      Canonical
+                    </span>
+                  ) : (
+                    <>
+                      <Link
+                        to={`/stakeholders/${s.id}/edit`}
+                        className="font-medium text-emerald-600 hover:text-emerald-700"
+                      >
+                        Edit
+                      </Link>
+                      {' · '}
+                      <button
+                        onClick={() => deleteStakeholder(s.id)}
+                        disabled={deletingId === s.id}
+                        className="font-medium text-red-500 hover:text-red-600 disabled:opacity-50"
+                      >
+                        {deletingId === s.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

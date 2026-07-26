@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import cytoscape, { type Core, type NodeSingular } from 'cytoscape';
-import { supabase } from '../../lib/supabase';
+import { featureSupabase, scopeFeatureRows } from '../../lib/featureStore';
 import { DEFAULT_MAP_ID } from '../../lib/constants';
 import type { Stakeholder } from '../../types/database';
 import type { Relationship } from '../../types/database';
@@ -166,7 +166,11 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
           return { map_id: DEFAULT_MAP_ID, stakeholder_id: n.id(), x: pos.x, y: pos.y, updated_at: new Date().toISOString() };
         });
         try {
-          await supabase.from('map_layouts').upsert(layoutsToUpsert, { onConflict: 'map_id,stakeholder_id' });
+          const scopedLayouts = await scopeFeatureRows(layoutsToUpsert);
+          const { error } = await featureSupabase
+            .from('map_layouts')
+            .upsert(scopedLayouts, { onConflict: 'map_id,stakeholder_id' });
+          if (error) throw error;
           onLayoutChange?.();
         } catch (e) {
           console.error('Failed to save layout after auto-arrange:', e);
@@ -570,9 +574,10 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(funct
       });
 
       try {
-        const { error: upsertErr } = await supabase
+        const scopedLayouts = await scopeFeatureRows(layoutsToUpsert);
+        const { error: upsertErr } = await featureSupabase
           .from('map_layouts')
-          .upsert(layoutsToUpsert, { onConflict: 'map_id,stakeholder_id' });
+          .upsert(scopedLayouts, { onConflict: 'map_id,stakeholder_id' });
         if (upsertErr) throw upsertErr;
         onLayoutChange?.();
       } catch (e) {
