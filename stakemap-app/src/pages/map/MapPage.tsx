@@ -421,8 +421,8 @@ export function MapPage() {
         {canonicalReadsEnabled && (
           <div className="mb-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
             Canonical companies and stakeholders are live in this preview.
-            Relationships, layouts and interactions remain in the legacy
-            StakeMap feature store.
+            Relationships, layouts, interactions and audit history now use the
+            shared workspace feature store.
           </div>
         )}
         {/* Toolbar */}
