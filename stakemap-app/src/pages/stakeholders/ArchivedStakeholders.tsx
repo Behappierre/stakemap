@@ -40,12 +40,15 @@ export function ArchivedStakeholders() {
     if (!window.confirm('Restore this stakeholder? They will reappear on the map.')) return;
     setRestoringId(id);
     try {
-      const { error: err } = await canonicalEntityClient
+      const { data, error: err } = await canonicalEntityClient
         .from('stakeholders')
         .update({ status: 'active' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'archived')
+        .select('id')
+        .maybeSingle();
       if (err) throw err;
-      await logAudit('stakeholder', id, 'restore');
+      if (data) await logAudit('stakeholder', id, 'restore');
       await fetchArchived();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to restore');

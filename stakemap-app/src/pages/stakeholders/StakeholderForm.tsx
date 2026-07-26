@@ -141,12 +141,15 @@ export function StakeholderForm() {
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeleting(true);
     try {
-      const { error: err } = await canonicalEntityClient
+      const { data, error: err } = await canonicalEntityClient
         .from('stakeholders')
         .update({ status: 'archived' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle();
       if (err) throw err;
-      await logAudit('stakeholder', id, 'archive');
+      if (data) await logAudit('stakeholder', id, 'archive');
       navigate('/stakeholders');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete');

@@ -65,12 +65,15 @@ export function CompanyList() {
     if (!window.confirm('Archive this company? It will be hidden from all views.')) return;
     setDeletingId(id);
     try {
-      const { error: err } = await canonicalEntityClient
+      const { data, error: err } = await canonicalEntityClient
         .from('companies')
         .update({ status: 'archived' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle();
       if (err) throw err;
-      await logAudit('company', id, 'archive');
+      if (data) await logAudit('company', id, 'archive');
       await fetchCompanies();
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to archive company');

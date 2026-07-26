@@ -28,12 +28,15 @@ export function StakeholderList() {
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeletingId(id);
     try {
-      const { error } = await canonicalEntityClient
+      const { data, error } = await canonicalEntityClient
         .from('stakeholders')
         .update({ status: 'archived' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
-      await logAudit('stakeholder', id, 'archive');
+      if (data) await logAudit('stakeholder', id, 'archive');
       setRefreshKey((k) => k + 1);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Failed to delete');

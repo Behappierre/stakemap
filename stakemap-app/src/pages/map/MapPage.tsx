@@ -269,12 +269,15 @@ export function MapPage() {
     if (!window.confirm('Archive this stakeholder? They will be removed from the map.')) return;
     setDeleting(true);
     try {
-      const { error } = await canonicalEntityClient
+      const { data, error } = await canonicalEntityClient
         .from('stakeholders')
         .update({ status: 'archived' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'active')
+        .select('id')
+        .maybeSingle();
       if (error) throw error;
-      await logAudit('stakeholder', id, 'archive');
+      if (data) await logAudit('stakeholder', id, 'archive');
       setSelectedStakeholder(null);
       await loadData();
     } catch (e) {
