@@ -125,8 +125,8 @@ export function StakeholderList() {
             {stakeholders.map((s) => (
               <tr key={s.id} className="table-row">
                 <td className="font-medium text-slate-900">{s.full_name}</td>
-                <td className="text-slate-500">{s.companies?.name ?? 'â€”'}</td>
-                <td className="text-slate-500">{s.title || 'â€”'}</td>
+                <td className="text-slate-500">{s.companies?.name ?? '—'}</td>
+                <td className="text-slate-500">{s.title || '—'}</td>
                 <td>
                   <span className={SENTIMENT_BADGE[s.sentiment] || 'badge badge-neutral'}>
                     {s.sentiment}
@@ -145,7 +145,7 @@ export function StakeholderList() {
                       >
                         Edit
                       </Link>
-                      {' Â· '}
+                      {' · '}
                       <button
                         onClick={() => deleteStakeholder(s.id)}
                         disabled={deletingId === s.id}

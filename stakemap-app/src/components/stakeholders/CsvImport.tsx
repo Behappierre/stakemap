@@ -269,10 +269,10 @@ export function CsvImport({ onImportComplete }: CsvImportProps) {
                       {row.rowNumber}
                     </td>
                     <td className="px-3 py-2 font-medium text-slate-900">
-                      {row.data.full_name || 'â€”'}
+                      {row.data.full_name || '—'}
                     </td>
                     <td className="px-3 py-2 text-slate-600">
-                      {row.data.company || 'â€”'}
+                      {row.data.company || '—'}
                       {row.status === 'ready' && (
                         <span className="ml-1 text-xs text-slate-400">
                           (
@@ -350,7 +350,7 @@ export function CsvImport({ onImportComplete }: CsvImportProps) {
             Imported {result.imported} stakeholder
             {result.imported === 1 ? '' : 's'}
             {result.companiesCreated > 0 &&
-              ` Â· Created ${result.companiesCreated} new ${
+              ` · Created ${result.companiesCreated} new ${
                 result.companiesCreated === 1 ? 'company' : 'companies'
               }`}
           </p>
